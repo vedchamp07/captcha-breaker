@@ -149,7 +149,7 @@ Converts to grayscale, applies denoising → saves to `data/processed/`
 python train.py
 ```
 
-Trains for 50 epochs with:
+Trains for 60 epochs with:
 
 - Batch size: 64
 - Learning rate: 0.0008 (with ReduceLROnPlateau scheduler)
