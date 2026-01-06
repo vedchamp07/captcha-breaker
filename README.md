@@ -106,6 +106,7 @@ Sequence Reshaping: (256, 15, 10) → (batch, 10, 3840)
 Bidirectional LSTM (2 layers, 256 hidden units)
   • Forward + Backward context
   • Outputs: (batch, 10, 512)
+  • Optional 4-head self-attention refinement (enabled in training script)
     ↓
 Linear Classifier: 512 → 37 outputs
   • 36 character classes (0-9, A-Z)
@@ -151,7 +152,9 @@ python train.py
 Trains for 50 epochs with:
 
 - Batch size: 64
-- Learning rate: 0.001 (with ReduceLROnPlateau scheduler)
+- Learning rate: 0.0008 (with ReduceLROnPlateau scheduler)
+- Epochs: 60
+- Uses BiLSTM + optional self-attention (enabled by default)
 - CTC loss with automatic alignment
 - Best model saved to `models/captcha_model.pth`
 
@@ -190,9 +193,10 @@ CAPTCHA_LENGTH = 5       # Characters per CAPTCHA
 
 ```python
 BATCH_SIZE = 64
-EPOCHS = 50
-LEARNING_RATE = 0.001
+EPOCHS = 60
+LEARNING_RATE = 0.0008
 USE_LSTM = True          # Set False for CNN-only model
+USE_ATTENTION = True     # Self-attention on top of BiLSTM outputs
 ```
 
 **`preprocess.py`**
