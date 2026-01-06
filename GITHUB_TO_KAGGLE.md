@@ -29,16 +29,30 @@ Your repository: `https://github.com/vedchamp07/captcha-breaker`
 !nvidia-smi
 ```
 
-#### **Cell 2: Clone Repository**
+#### **Cell 2: Clone Private Repository with GitHub Token**
+
+Since your repo is private, use your GitHub token stored in Kaggle Secrets:
 
 ```python
-# Clone your GitHub repo
-!git clone https://github.com/vedchamp07/captcha-breaker.git
+# Get GitHub token from Kaggle Secrets
+from kaggle_secrets import UserSecretsClient
+
+user_secrets = UserSecretsClient()
+github_token = user_secrets.get_secret("GITHUB_TOKEN")
+
+# Clone your private GitHub repo using token authentication
+!git clone https://{github_token}@github.com/vedchamp07/captcha-breaker.git
 %cd captcha-breaker
 
 # Verify files
 !ls -la
 ```
+
+**What's happening:**
+
+- `UserSecretsClient()` retrieves your `GITHUB_TOKEN` from Kaggle Secrets
+- The token is inserted into the URL for authentication
+- Works for both public and private repos!
 
 #### **Cell 3: Install Dependencies**
 
@@ -275,16 +289,16 @@ python predict.py data/processed/test.png
 
 ## 🎯 Quick Command Summary
 
-| Step          | Command                                                        | Where          |
-| ------------- | -------------------------------------------------------------- | -------------- |
-| Clone repo    | `!git clone https://github.com/vedchamp07/captcha-breaker.git` | Kaggle cell    |
-| Install deps  | `!pip install -q torch torchvision captcha opencv-python`      | Kaggle cell    |
-| Generate data | `!python generate_dataset.py`                                  | Kaggle cell    |
-| Preprocess    | `!python preprocess.py`                                        | Kaggle cell    |
-| Train         | `!python train.py`                                             | Kaggle cell    |
-| Test          | `!python predict.py data/processed/ABC12_0.png`                | Kaggle cell    |
-| Download      | `FileLink('models/captcha_model.pth')`                         | Kaggle cell    |
-| Pull locally  | `git pull origin main`                                         | Local terminal |
+| Step          | Command                                                   | Where          |
+| ------------- | --------------------------------------------------------- | -------------- |
+| Clone repo    | See **Cell 2** (uses GitHub token from Secrets)           | Kaggle cell    |
+| Install deps  | `!pip install -q torch torchvision captcha opencv-python` | Kaggle cell    |
+| Generate data | `!python generate_dataset.py`                             | Kaggle cell    |
+| Preprocess    | `!python preprocess.py`                                   | Kaggle cell    |
+| Train         | `!python train.py`                                        | Kaggle cell    |
+| Test          | `!python predict.py data/processed/ABC12_0.png`           | Kaggle cell    |
+| Download      | `FileLink('models/captcha_model.pth')`                    | Kaggle cell    |
+| Pull locally  | `git pull origin main`                                    | Local terminal |
 
 ---
 
@@ -338,7 +352,7 @@ After running `!python train.py` on Kaggle:
 
 ---
 
-## ✅ Complete Notebook Template
+## ✅ Complete Notebook Template (for Private Repo)
 
 Copy this entire sequence into a new Kaggle notebook:
 
@@ -346,8 +360,11 @@ Copy this entire sequence into a new Kaggle notebook:
 # Cell 1: GPU Check
 !nvidia-smi
 
-# Cell 2: Clone from GitHub
-!git clone https://github.com/vedchamp07/captcha-breaker.git
+# Cell 2: Clone Private Repo with Token
+from kaggle_secrets import UserSecretsClient
+user_secrets = UserSecretsClient()
+github_token = user_secrets.get_secret("GITHUB_TOKEN")
+!git clone https://{github_token}@github.com/vedchamp07/captcha-breaker.git
 %cd captcha-breaker
 
 # Cell 3: Install
