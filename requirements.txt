@@ -1,8 +1,8 @@
-torch>=2.0.0
-torchvision>=0.15.0
-captcha>=0.5.0
-Pillow>=10.0.0
-numpy>=1.24.0
-matplotlib>=3.7.0
-tqdm>=4.65.0
-opencv-python>=4.8.0  # For preprocessing (grayscale, noise removal)
+torch
+torchvision
+captcha
+Pillow
+numpy
+matplotlib
+tqdm
+opencv-python  # For preprocessing (grayscale, noise removal)
