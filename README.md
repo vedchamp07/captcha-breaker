@@ -211,6 +211,10 @@ USE_LSTM = True          # Set False for CNN-only model
 | Dataset       | 10,000 images   |
 | Classes       | 36 (0-9, A-Z)   |
 
+## 🧪 Checkpoints
+
+- [models/captcha_model_improved.pth](models/captcha_model_improved.pth): validation loss 86.05%
+
 ## 🛠️ Technology Stack
 
 - **PyTorch 2.0+** - Deep learning framework
