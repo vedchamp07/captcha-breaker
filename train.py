@@ -116,9 +116,10 @@ def main():
     print(f"Training samples: {len(train_dataset)}")
     print(f"Validation samples: {len(val_dataset)}")
     
-    # Create dataloaders
-    train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=2)
-    val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=2)
+    # Create dataloaders (num_workers=0 on macOS/Windows, 2 on Linux with GPU)
+    num_workers = 0 if torch.cuda.is_available() == False else 2
+    train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=num_workers)
+    val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=num_workers)
     
     # Create model
     model = CaptchaCNN(
