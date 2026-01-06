@@ -354,48 +354,91 @@ After running `!python train.py` on Kaggle:
 
 ## ✅ Complete Notebook Template (for Private Repo)
 
-Copy this entire sequence into a new Kaggle notebook:
+**IMPORTANT**: Create **10 separate cells** in your Kaggle notebook (don't copy everything into one cell).
+
+Click **+ Code** for each cell below:
+
+**Cell 1: GPU Check**
 
 ```python
-# Cell 1: GPU Check
 !nvidia-smi
+```
 
-# Cell 2: Clone Private Repo with Token
+**Cell 2: Clone Private Repo with Token**
+
+```python
 from kaggle_secrets import UserSecretsClient
+
 user_secrets = UserSecretsClient()
 github_token = user_secrets.get_secret("GITHUB_TOKEN")
+
 !git clone https://{github_token}@github.com/vedchamp07/captcha-breaker.git
 %cd captcha-breaker
+```
 
-# Cell 3: Install
+**Cell 3: Install**
+
+```python
 !pip install -q torch torchvision captcha opencv-python tqdm
+```
 
-# Cell 4: Setup
+**Cell 4: Setup**
+
+```python
 import os
 os.makedirs('data/raw', exist_ok=True)
 os.makedirs('data/processed', exist_ok=True)
 os.makedirs('models', exist_ok=True)
+```
 
-# Cell 5: Generate dataset
+**Cell 5: Generate Dataset**
+
+```python
 !python generate_dataset.py
+```
 
-# Cell 6: Preprocess
+**Cell 6: Preprocess**
+
+```python
 !python preprocess.py
+```
 
-# Cell 7: Train (15-30 min)
+**Cell 7: Train** (takes 15-30 minutes)
+
+```python
 !python train.py
+```
 
-# Cell 8: Check model
+**Cell 8: Check Model**
+
+```python
 import torch
+import os
+
 size = os.path.getsize('models/captcha_model.pth') / (1024*1024)
 print(f"✓ Model: {size:.2f} MB")
+```
 
-# Cell 9: Test
+**Cell 9: Test**
+
+```python
 !python predict.py data/processed/ABC12_0.png
+```
 
-# Cell 10: Download
+**Cell 10: Download**
+
+```python
 from IPython.display import FileLink
 FileLink('models/captcha_model.pth')
 ```
+
+---
+
+## 🎓 Key Rules for Kaggle Notebooks
+
+- **One cell = One block** of code
+- Press **+ Code** button to add new cell (don't copy multiple cells into one)
+- Mix `!` (shell) commands with Python code in the same cell (they work together)
+- Each cell's output shown below it
 
 That's it! 🚀

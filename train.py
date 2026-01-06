@@ -97,6 +97,7 @@ def train_epoch(model, dataloader, criterion, optimizer, device):
         
         # Calculate accuracy
         predictions = model.predict(images)
+        model.train()  # ← IMPORTANT: restore training mode after predict()
         correct += (predictions == labels).all(dim=1).sum().item()
         total += batch_size
         
@@ -132,8 +133,35 @@ def validate(model, dataloader, criterion, device):
             loss = criterion(log_probs, labels, input_lengths, target_lengths)
             total_loss += loss.item()
             
-            # Calculate accuracy
-            predictions = model.predict(images)
+            # Calculate accuracy (decode without using predict() to avoid mode changes)
+            _, preds = log_probs.max(2)  # (seq_len, batch)
+            preds = preds.transpose(0, 1)  # (batch, seq_len)
+            
+            # Simple greedy decode
+            decoded = []
+            for pred_seq in preds:
+                decoded_seq = []
+                prev_char = None
+                for char_idx in pred_seq:
+                    char_idx = char_idx.item()
+                    if char_idx == model.blank_idx:
+                        prev_char = None
+                        continue
+                    if char_idx != prev_char:
+                        decoded_seq.append(char_idx)
+                        prev_char = char_idx
+                decoded.append(decoded_seq)
+            
+            # Pad to length 5
+            predictions = []
+            for seq in decoded:
+                if len(seq) < 5:
+                    seq = seq + [0] * (5 - len(seq))
+                else:
+                    seq = seq[:5]
+                predictions.append(seq)
+            predictions = torch.tensor(predictions, dtype=torch.long, device=device)
+            
             correct += (predictions == labels).all(dim=1).sum().item()
             total += batch_size
             
