@@ -227,7 +227,7 @@ def main():
     criterion = nn.CTCLoss(blank=NUM_CLASSES, zero_infinity=True)
     optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', 
-                                                      factor=0.5, patience=3, verbose=True)
+                                                      factor=0.5, patience=3)
     
     # Training loop
     best_val_acc = 0.0
