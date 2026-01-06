@@ -1,85 +1,76 @@
 """
-Use trained model to predict CAPTCHA text from images.
+Prediction script for CTC-based CAPTCHA model.
 """
 import torch
 from torchvision import transforms
 from PIL import Image
-import argparse
+import string
 from pathlib import Path
+import argparse
 
-from src.model import CaptchaCNN
+from src.model import CTCCaptchaModel, CTCCaptchaModelSimple
 
-def load_model(model_path, device):
-    """Load trained model from checkpoint."""
-    checkpoint = torch.load(model_path, map_location=device)
-    
-    characters = checkpoint['characters']
-    num_classes = len(characters)
-    
-    model = CaptchaCNN(
-        num_chars=5,
-        num_classes=num_classes,
-        captcha_length=5
-    ).to(device)
-    
-    model.load_state_dict(checkpoint['model_state_dict'])
-    model.eval()
-    
-    # Create index to character mapping
-    idx_to_char = {idx: char for idx, char in enumerate(characters)}
-    
-    return model, idx_to_char
 
-def predict_image(image_path, model, idx_to_char, device):
+def predict_image(model, image_path, characters, device):
     """Predict CAPTCHA text from image."""
-    # Define transform
+    # Load and preprocess image
+    image = Image.open(image_path).convert('L')
+    
     transform = transforms.Compose([
         transforms.Resize((60, 160)),
         transforms.ToTensor(),
-        transforms.Normalize(mean=[0.5, 0.5, 0.5], 
-                           std=[0.5, 0.5, 0.5])
+        transforms.Normalize(mean=[0.5], std=[0.5])
     ])
     
-    # Load and preprocess image
-    image = Image.open(image_path).convert('RGB')
     image_tensor = transform(image).unsqueeze(0).to(device)
     
     # Predict
+    model.eval()
     with torch.no_grad():
-        predictions = model.predict(image_tensor)
+        pred_indices = model.predict(image_tensor)[0]
     
-    # Decode prediction
-    predicted_text = ''.join([idx_to_char[idx.item()] for idx in predictions[0]])
+    # Decode
+    predicted_text = ''.join([characters[idx] for idx in pred_indices if idx < len(characters)])
     
     return predicted_text
 
+
 def main():
-    parser = argparse.ArgumentParser(description='Predict CAPTCHA text')
+    parser = argparse.ArgumentParser(description='Predict CAPTCHA using CTC model')
     parser.add_argument('image_path', type=str, help='Path to CAPTCHA image')
     parser.add_argument('--model', type=str, default='models/captcha_model.pth',
-                       help='Path to trained model')
+                       help='Path to model checkpoint')
+    parser.add_argument('--use-lstm', action='store_true', default=True,
+                       help='Use LSTM model (default: True)')
     args = parser.parse_args()
     
-    # Set device
+    # Setup
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    characters = string.digits + string.ascii_uppercase
     
     # Load model
-    print(f"Loading model from {args.model}...")
-    model, idx_to_char = load_model(args.model, device)
+    if args.use_lstm:
+        model = CTCCaptchaModel(num_classes=len(characters))
+    else:
+        model = CTCCaptchaModelSimple(num_classes=len(characters))
+    
+    model.load_state_dict(torch.load(args.model, map_location=device))
+    model.to(device)
     
     # Predict
-    print(f"Predicting {args.image_path}...")
-    predicted_text = predict_image(args.image_path, model, idx_to_char, device)
+    predicted_text = predict_image(model, args.image_path, characters, device)
     
-    print(f"\n✓ Predicted text: {predicted_text}")
-    
-    # If filename contains actual text, show accuracy
-    filename = Path(args.image_path).stem
-    if '_' in filename:
-        actual_text = filename.split('_')[0]
-        correct = predicted_text == actual_text
-        print(f"  Actual text: {actual_text}")
-        print(f"  Match: {'✓' if correct else '✗'}")
+    # Get ground truth if available
+    image_path = Path(args.image_path)
+    if '_' in image_path.stem:
+        ground_truth = image_path.stem.split('_')[0]
+        correct = predicted_text == ground_truth
+        print(f"Predicted: {predicted_text}")
+        print(f"Ground Truth: {ground_truth}")
+        print(f"Correct: {'✓' if correct else '✗'}")
+    else:
+        print(f"Predicted: {predicted_text}")
+
 
 if __name__ == "__main__":
     main()

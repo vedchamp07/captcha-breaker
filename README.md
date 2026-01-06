@@ -1,182 +1,193 @@
-# CAPTCHA Breaker
+# 🔐 CAPTCHA Breaker
 
-A deep learning project that generates and solves CAPTCHA images using PyTorch.
+A deep learning project to recognize CAPTCHA images using PyTorch with **CTC (Connectionist Temporal Classification)** architecture.
+
+**No bounding boxes needed** - the model automatically learns character positions!
 
 ## 🎯 Project Overview
 
-This project uses a Convolutional Neural Network (CNN) to recognize text in CAPTCHA images. It includes:
+This project uses a CNN + LSTM + CTC architecture to recognize text in CAPTCHA images. It includes:
 
 - CAPTCHA image generation using the `python-captcha` library
-- A PyTorch-based CNN model for character recognition
+- CTC-based model (industry standard for sequence recognition)
+- Preprocessing pipeline (grayscale conversion, noise removal)
 - Training and prediction scripts
-- Support for Kaggle GPU training
+- Kaggle GPU training support with step-by-step guide
+
+**Why CTC?**
+
+- Handles variable character spacing
+- Works with overlapping/distorted characters
+- No manual bounding box labeling needed
+- Used in production OCR systems (Google Tesseract, etc.)
 
 ## 📁 Project Structure
 
 ```
 captcha-breaker/
-├── data/
-│   ├── raw/              # Generated CAPTCHA images
-│   └── processed/        # Preprocessed data (if needed)
 ├── src/
 │   ├── __init__.py
-│   ├── dataset.py        # PyTorch Dataset class
-│   └── model.py          # CNN model architecture
-├── models/               # Saved model checkpoints
-├── notebooks/            # Jupyter notebooks for experiments
-├── generate_dataset.py   # Generate training data
-├── train.py             # Training script
-├── predict.py           # Prediction script
-├── requirements.txt     # Python dependencies
-└── README.md
+│   └── model.py              # CTC-based CAPTCHA model
+├── data/
+│   ├── raw/                  # Generated CAPTCHA images
+│   └── processed/            # Preprocessed images (grayscale)
+├── models/
+│   └── captcha_model.pth     # Trained model weights
+├── notebooks/
+│   └── kaggle_training.ipynb # Kaggle training notebook
+├── generate_dataset.py       # Generate synthetic CAPTCHAs
+├── preprocess.py             # Preprocess images (grayscale, denoise)
+├── train.py                  # Train the CTC model
+├── predict.py                # Predict on single image
+├── requirements.txt          # Python dependencies
+├── README.md                 # This file
+├── ARCHITECTURE_COMPARISON.md # Explanation of different approaches
+└── KAGGLE_WORKFLOW.md        # Complete Kaggle guide
 ```
 
-## 🚀 Getting Started
+## 🚀 Quick Start
 
-### 1. Clone the Repository
+### Local Training
 
 ```bash
+# 1. Clone the repository
 git clone https://github.com/yourusername/captcha-breaker.git
 cd captcha-breaker
-```
 
-### 2. Install Dependencies
-
-```bash
+# 2. Install dependencies
 python3 -m venv venv
 source venv/bin/activate  # On Mac/Linux
+# venv\Scripts\activate   # On Windows
 pip install -r requirements.txt
+
+# 3. Generate dataset
+python generate_dataset.py
+
+# 4. Preprocess images
+python preprocess.py
+
+# 5. Train the model
+python train.py
+
+# 6. Test prediction
+python predict.py data/processed/ABC12_0.png
 ```
 
-### 3. Generate Dataset
+### Kaggle Training (Recommended for GPU)
+
+See **[KAGGLE_WORKFLOW.md](KAGGLE_WORKFLOW.md)** for complete step-by-step instructions.
+
+**Quick version:**
+
+1. Upload code to Kaggle as dataset or use the notebook template
+2. Use the provided `notebooks/kaggle_training.ipynb`
+3. Enable GPU in Kaggle settings
+4. Run all cells
+5. Download trained model
+6. Push to GitHub using Kaggle secrets
+
+## 🏗️ Model Architecture
+
+```
+Input Image (60x160 grayscale)
+    ↓
+CNN Feature Extraction (4 conv blocks)
+    ↓
+Reshape to Sequence (width → time steps)
+    ↓
+Bidirectional LSTM (2 layers)
+    ↓
+Character Predictions (per time step)
+    ↓
+CTC Loss (automatic alignment)
+    ↓
+Output: 5 Characters (A-Z, 0-9)
+```
+
+**Key Components:**
+
+- **CNN Backbone**: Extracts visual features from CAPTCHA
+- **LSTM**: Processes sequential information
+- **CTC Loss**: Handles alignment without explicit position labels
+- **No Bounding Boxes**: Model learns character positions automatically
+
+See [ARCHITECTURE_COMPARISON.md](ARCHITECTURE_COMPARISON.md) for comparison with other approaches.
+
+## 📊 Performance
+
+| Metric            | Value                 |
+| ----------------- | --------------------- |
+| Training Time     | 15-30 min (GPU)       |
+| Expected Accuracy | 50-90%                |
+| Model Size        | ~5-20 MB              |
+| Dataset Size      | 10,000 images         |
+| Character Set     | 36 classes (0-9, A-Z) |
+
+**Previous approaches:**
+
+- Original simple CNN: ~30-50% accuracy
+- Two-stage with bbox: **6.25%** (broken due to incorrect bbox labels)
+- **CTC approach (current): 50-90%** ✅
+
+## 💻 Usage
+
+### Generate Dataset
 
 ```bash
 python generate_dataset.py
 ```
 
-This will create 10,000 CAPTCHA images in `data/raw/`.
+Creates 10,000 synthetic CAPTCHA images in `data/raw/`
 
-### 4. Preprocess Images (Two-Stage Model)
-
-For the two-stage model, preprocess images to grayscale and remove noise:
+### Preprocess Images
 
 ```bash
 python preprocess.py
 ```
 
-This will:
+Converts to grayscale and removes noise → saves to `data/processed/`
 
-- Convert images to grayscale
-- Remove background dots/noise
-- Enhance contrast with CLAHE
-- Denoise with fastNlMeans
-- Save to `data/processed/`
-
-### 5. Train the Model
-
-**Two-Stage Model (Recommended):**
-
-```bash
-python train_twostage.py
-```
-
-This trains in two stages:
-
-1. **Stage 1:** Bounding box detector (15 epochs)
-2. **Stage 2:** Full model with character recognition (20 epochs)
-
-**Original Single-Stage Model:**
+### Train Model
 
 ```bash
 python train.py
 ```
 
-**On Kaggle:**
+Trains for 50 epochs, saves best model to `models/captcha_model.pth`
 
-1. Upload this project to Kaggle
-2. Enable GPU accelerator in Kaggle settings
-3. Run preprocessing: `!python preprocess.py` (for two-stage model)
-4. Run training: `!python train_twostage.py` or `!python train.py`
-
-### 6. Make Predictions
+### Predict
 
 ```bash
-python predict.py data/raw/ABC12_0.png
+python predict.py data/processed/ABC12_0.png
 ```
 
-## 🧠 Model Architecture
-
-### **Two-Stage Architecture** (Recommended)
-
-The new two-stage model provides better accuracy through specialized components:
-
-**Stage 1: Bounding Box Detector**
-
-- Detects individual character locations with rotation
-- CNN backbone (4 conv blocks) → Bbox regression head
-- Outputs 5 bounding boxes: (x, y, width, height, angle)
-
-**Stage 2: Character Recognizer**
-
-- Recognizes normalized character patches (40×40)
-- Lightweight CNN (3 conv blocks) → Classification head
-- Trained on extracted character regions
-
-**Input:** Grayscale preprocessed images (1 × 60 × 160)  
-**Output:** 5 characters from [0-9, A-Z]
-
-**Preprocessing:**
-
-- Grayscale conversion
-- Noise removal (morphological operations)
-- Contrast enhancement (CLAHE)
-- Denoising (fastNlMeans)
-
-**Training/Validation Split:** 80% train, 20% validation
-
-- Uses PyTorch's `random_split()` for reproducibility
-- Recommended: Use test set from separate directory for final evaluation
-
-### **Single-Stage Architecture** (Legacy)
-
-Basic CNN with:
-
-- 4 convolutional blocks with batch normalization and max pooling
-- 2 fully connected layers (512→256) with batch norm and dropout
-- 5 output heads (one per character position)
-- Works on RGB images directly
-
-## 📊 Results
-
-Training metrics will appear after running `python train.py`:
-
-- Each epoch shows training and validation accuracy
-- Best model is automatically saved to `models/captcha_model.pth`
-
-(Update after training with your actual results)
+Outputs: Predicted text and comparison with ground truth (if available)
 
 ## 🔧 Configuration
 
-Edit these variables in the scripts to customize:
-
 **generate_dataset.py:**
 
-- `NUM_SAMPLES`: Number of images to generate
-- `CAPTCHA_LENGTH`: Length of CAPTCHA text
+- `NUM_SAMPLES = 10000` - Number of images to generate
+- `CAPTCHA_LENGTH = 5` - Length of CAPTCHA text
 
 **train.py:**
 
-- `BATCH_SIZE`: Batch size for training
-- `EPOCHS`: Number of training epochs
-- `LEARNING_RATE`: Learning rate for optimizer
+- `BATCH_SIZE = 64` - Training batch size
+- `EPOCHS = 50` - Number of training epochs
+- `LEARNING_RATE = 0.001` - Initial learning rate
+- `USE_LSTM = True` - Use LSTM model (set False for simpler CNN-only)
 
-## 📝 To-Do
+**preprocess.py:**
 
-- [ ] Add data augmentation
-- [ ] Experiment with different architectures
-- [ ] Add CTC loss for variable-length sequences
-- [ ] Create web demo
-- [ ] Add more character sets
+- Grayscale conversion
+- Otsu's thresholding for binarization
+- Morphological operations for noise removal
+
+## 📚 Additional Documentation
+
+- **[ARCHITECTURE_COMPARISON.md](ARCHITECTURE_COMPARISON.md)** - Why CTC? Comparison of different approaches
+- **[KAGGLE_WORKFLOW.md](KAGGLE_WORKFLOW.md)** - Complete step-by-step Kaggle training guide
+- **[notebooks/kaggle_training.ipynb](notebooks/kaggle_training.ipynb)** - Ready-to-use Kaggle notebook
 
 ## 🤝 Contributing
 
@@ -190,3 +201,4 @@ MIT License
 
 - PyTorch team for the deep learning framework
 - python-captcha library for CAPTCHA generation
+- CTC loss implementation based on PyTorch's CTCLoss

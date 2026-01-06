@@ -1,95 +1,280 @@
 """
-CNN-based CAPTCHA recognition model.
+CTC-based CAPTCHA recognition model.
+Uses CNN + LSTM + CTC loss - no bounding boxes needed!
+
+This approach is standard for sequence recognition tasks where
+character positions are unknown or variable.
 """
 import torch
 import torch.nn as nn
 
-class CaptchaCNN(nn.Module):
-    """Convolutional Neural Network for CAPTCHA recognition."""
+
+class CTCCaptchaModel(nn.Module):
+    """
+    CAPTCHA recognition using CTC (Connectionist Temporal Classification).
     
-    def __init__(self, num_chars, num_classes, captcha_length=5):
+    Architecture:
+    1. CNN backbone extracts visual features
+    2. Reshape to sequence (treating width as time steps)
+    3. Bidirectional LSTM processes sequence
+    4. Linear layer outputs character probabilities for each time step
+    5. CTC loss handles alignment between predictions and ground truth
+    
+    No need for bounding boxes - CTC figures out alignment automatically!
+    """
+    
+    def __init__(self, num_classes=36, hidden_size=256, num_lstm_layers=2):
         """
         Args:
-            num_chars: Number of character positions to predict (e.g., 5)
-            num_classes: Number of possible characters (e.g., 36 for 0-9,A-Z)
-            captcha_length: Length of CAPTCHA text
+            num_classes: Number of character classes (36 for A-Z, 0-9)
+            hidden_size: Hidden size for LSTM layers
+            num_lstm_layers: Number of LSTM layers
         """
-        super(CaptchaCNN, self).__init__()
+        super(CTCCaptchaModel, self).__init__()
         
-        self.num_chars = num_chars
         self.num_classes = num_classes
-        self.captcha_length = captcha_length
+        # CTC needs blank token for alignment (class index = num_classes)
+        self.blank_idx = num_classes
         
-        # Convolutional layers with Batch Normalization for better training stability
-        self.conv_layers = nn.Sequential(
-            # Input: 3 x 60 x 160
-            nn.Conv2d(3, 32, kernel_size=3, padding=1),
+        # CNN backbone for feature extraction
+        # Input: (batch, 1, 60, 160) - grayscale image
+        self.cnn = nn.Sequential(
+            # Block 1
+            nn.Conv2d(1, 32, kernel_size=3, padding=1),
             nn.BatchNorm2d(32),
             nn.ReLU(),
-            nn.MaxPool2d(2, 2),  # 32 x 30 x 80
+            nn.MaxPool2d(2, 2),  # -> (32, 30, 80)
             
+            # Block 2
             nn.Conv2d(32, 64, kernel_size=3, padding=1),
             nn.BatchNorm2d(64),
             nn.ReLU(),
-            nn.MaxPool2d(2, 2),  # 64 x 15 x 40
+            nn.MaxPool2d(2, 2),  # -> (64, 15, 40)
+            
+            # Block 3
+            nn.Conv2d(64, 128, kernel_size=3, padding=1),
+            nn.BatchNorm2d(128),
+            nn.ReLU(),
+            nn.MaxPool2d((1, 2)),  # Pool only width -> (128, 15, 20)
+            
+            # Block 4
+            nn.Conv2d(128, 256, kernel_size=3, padding=1),
+            nn.BatchNorm2d(256),
+            nn.ReLU(),
+            nn.MaxPool2d((1, 2)),  # Pool only width -> (256, 15, 10)
+        )
+        
+        # After CNN: (batch, 256, 15, 10)
+        # We'll reshape to: (batch, 10, 256*15) treating width as sequence
+        # So sequence length = 10, feature dim = 256*15 = 3840
+        self.feature_size = 256 * 15  # channels * height
+        self.sequence_length = 10  # width after pooling
+        
+        # Map CNN features to LSTM input size
+        self.map_to_seq = nn.Linear(self.feature_size, hidden_size)
+        
+        # Bidirectional LSTM to process sequence
+        self.lstm = nn.LSTM(
+            hidden_size,
+            hidden_size,
+            num_layers=num_lstm_layers,
+            bidirectional=True,
+            dropout=0.3 if num_lstm_layers > 1 else 0,
+            batch_first=True
+        )
+        
+        # Output layer: map LSTM outputs to character probabilities
+        # +1 for CTC blank token
+        self.fc = nn.Linear(hidden_size * 2, num_classes + 1)  # *2 for bidirectional
+        
+    def forward(self, x):
+        """
+        Args:
+            x: Input images (batch_size, 1, 60, 160)
+        
+        Returns:
+            Log probabilities for CTC loss (sequence_length, batch_size, num_classes+1)
+        """
+        batch_size = x.size(0)
+        
+        # Extract CNN features
+        features = self.cnn(x)  # (batch, 256, 15, 10)
+        
+        # Reshape to sequence: (batch, width, channels*height)
+        # Transpose to treat width as sequence dimension
+        features = features.permute(0, 3, 1, 2)  # (batch, 10, 256, 15)
+        features = features.reshape(batch_size, self.sequence_length, self.feature_size)
+        
+        # Map to LSTM input size
+        features = self.map_to_seq(features)  # (batch, 10, hidden_size)
+        
+        # Process with LSTM
+        lstm_out, _ = self.lstm(features)  # (batch, 10, hidden_size*2)
+        
+        # Get character predictions for each time step
+        logits = self.fc(lstm_out)  # (batch, 10, num_classes+1)
+        
+        # CTC expects: (sequence_length, batch, num_classes)
+        logits = logits.permute(1, 0, 2)  # (10, batch, num_classes+1)
+        
+        # Apply log_softmax for CTC loss
+        log_probs = torch.nn.functional.log_softmax(logits, dim=2)
+        
+        return log_probs
+    
+    def predict(self, x):
+        """
+        Decode predictions using greedy decoding.
+        
+        Args:
+            x: Input images (batch_size, 1, 60, 160)
+        
+        Returns:
+            Predicted character indices (batch_size, max_length)
+        """
+        self.eval()
+        with torch.no_grad():
+            log_probs = self.forward(x)  # (seq_len, batch, num_classes+1)
+            
+            # Greedy decoding: take argmax at each time step
+            _, preds = log_probs.max(2)  # (seq_len, batch)
+            preds = preds.transpose(0, 1)  # (batch, seq_len)
+            
+            # Decode: remove blanks and repeated characters
+            decoded = []
+            for pred_seq in preds:
+                decoded_seq = []
+                prev_char = None
+                
+                for char_idx in pred_seq:
+                    char_idx = char_idx.item()
+                    
+                    # Skip blank tokens
+                    if char_idx == self.blank_idx:
+                        prev_char = None
+                        continue
+                    
+                    # Skip repeated characters (CTC rule)
+                    if char_idx != prev_char:
+                        decoded_seq.append(char_idx)
+                        prev_char = char_idx
+                
+                decoded.append(decoded_seq)
+            
+            # Pad sequences to same length (max 5 for CAPTCHA)
+            max_len = 5
+            padded = []
+            for seq in decoded:
+                if len(seq) < max_len:
+                    seq = seq + [0] * (max_len - len(seq))  # Pad with 0
+                else:
+                    seq = seq[:max_len]  # Truncate if too long
+                padded.append(seq)
+            
+            # Return tensor on same device as input
+            return torch.tensor(padded, dtype=torch.long, device=x.device)
+
+
+class CTCCaptchaModelSimple(nn.Module):
+    """
+    Simpler CTC model without LSTM (faster training, less memory).
+    Good baseline to start with.
+    """
+    
+    def __init__(self, num_classes=36):
+        super(CTCCaptchaModelSimple, self).__init__()
+        
+        self.num_classes = num_classes
+        self.blank_idx = num_classes
+        
+        # CNN backbone
+        self.features = nn.Sequential(
+            nn.Conv2d(1, 64, kernel_size=3, padding=1),
+            nn.BatchNorm2d(64),
+            nn.ReLU(),
+            nn.MaxPool2d((2, 2)),  # -> (64, 30, 80)
             
             nn.Conv2d(64, 128, kernel_size=3, padding=1),
             nn.BatchNorm2d(128),
             nn.ReLU(),
-            nn.MaxPool2d(2, 2),  # 128 x 7 x 20
+            nn.MaxPool2d((2, 2)),  # -> (128, 15, 40)
             
             nn.Conv2d(128, 256, kernel_size=3, padding=1),
             nn.BatchNorm2d(256),
             nn.ReLU(),
-            nn.MaxPool2d(2, 2),  # 256 x 3 x 10
+            nn.MaxPool2d((1, 2)),  # -> (256, 15, 20)
+            
+            nn.Conv2d(256, 512, kernel_size=3, padding=1),
+            nn.BatchNorm2d(512),
+            nn.ReLU(),
+            nn.MaxPool2d((1, 2)),  # -> (512, 15, 10)
         )
         
-        # Calculate flattened size: 256 * 3 * 10 = 7680
-        self.fc_input_size = 256 * 3 * 10
-        
-        # Fully connected layers (reduced from 1024->512 to 512->256)
-        self.fc_layers = nn.Sequential(
-            nn.Linear(self.fc_input_size, 512),
-            nn.BatchNorm1d(512),
-            nn.ReLU(),
-            nn.Dropout(0.5),
-            nn.Linear(512, 256),
-            nn.BatchNorm1d(256),
+        # Direct mapping to character predictions
+        # Treat width dimension as sequence
+        self.classifier = nn.Sequential(
+            nn.Linear(512 * 15, 256),
             nn.ReLU(),
             nn.Dropout(0.3),
+            nn.Linear(256, num_classes + 1)
         )
         
-        # Output layers: one for each character position (smaller, more efficient)
-        self.output_layers = nn.ModuleList([
-            nn.Linear(256, num_classes) for _ in range(captcha_length)
-        ])
-    
+        self.sequence_length = 10
+        
     def forward(self, x):
-        """
-        Args:
-            x: Input tensor of shape (batch_size, 3, height, width)
-        Returns:
-            List of tensors, one for each character position
-            Each tensor has shape (batch_size, num_classes)
-        """
-        # Convolutional layers
-        x = self.conv_layers(x)
+        """Forward pass for CTC."""
+        batch_size = x.size(0)
         
-        # Flatten
-        x = x.view(x.size(0), -1)
+        # Extract features
+        features = self.features(x)  # (batch, 512, 15, 10)
         
-        # Fully connected layers
-        x = self.fc_layers(x)
+        # Reshape: treat width as sequence
+        features = features.permute(0, 3, 1, 2)  # (batch, 10, 512, 15)
+        features = features.reshape(batch_size, self.sequence_length, -1)
         
-        # Predict each character position
-        outputs = [layer(x) for layer in self.output_layers]
+        # Classify each time step
+        logits = self.classifier(features)  # (batch, 10, num_classes+1)
         
-        return outputs
+        # CTC format
+        logits = logits.permute(1, 0, 2)  # (10, batch, num_classes+1)
+        log_probs = torch.nn.functional.log_softmax(logits, dim=2)
+        
+        return log_probs
     
     def predict(self, x):
-        """Get predicted characters from logits."""
+        """Greedy decoding."""
         self.eval()
         with torch.no_grad():
-            outputs = self.forward(x)
-            predictions = [torch.argmax(out, dim=1) for out in outputs]
-            return torch.stack(predictions, dim=1)  # (batch_size, captcha_length)
+            log_probs = self.forward(x)
+            _, preds = log_probs.max(2)
+            preds = preds.transpose(0, 1)
+            
+            # Decode
+            decoded = []
+            for pred_seq in preds:
+                decoded_seq = []
+                prev_char = None
+                
+                for char_idx in pred_seq:
+                    char_idx = char_idx.item()
+                    if char_idx == self.blank_idx:
+                        prev_char = None
+                        continue
+                    if char_idx != prev_char:
+                        decoded_seq.append(char_idx)
+                        prev_char = char_idx
+                
+                decoded.append(decoded_seq)
+            
+            # Pad to length 5
+            max_len = 5
+            padded = []
+            for seq in decoded:
+                if len(seq) < max_len:
+                    seq = seq + [0] * (max_len - len(seq))
+                else:
+                    seq = seq[:max_len]
+                padded.append(seq)
+            
+            # Return tensor on same device as input
+            return torch.tensor(padded, dtype=torch.long, device=x.device)

@@ -10,23 +10,28 @@ import argparse
 
 def remove_background_noise(image):
     """
-    Remove background dots and noise using morphological operations.
+    Remove small background dots while preserving text characters.
+    Returns grayscale text on white background.
     """
-    # Apply Gaussian blur to reduce noise
+    # Apply light Gaussian blur to reduce noise
     blurred = cv2.GaussianBlur(image, (3, 3), 0)
     
-    # Apply adaptive thresholding to separate foreground from background
-    binary = cv2.adaptiveThreshold(
-        blurred, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
-        cv2.THRESH_BINARY, 11, 2
-    )
+    # Use Otsu's thresholding to separate foreground (text) from background
+    _, binary = cv2.threshold(blurred, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
     
-    # Morphological opening to remove small noise
+    # Invert if needed (text should be dark on light background)
+    # Check if most pixels are dark - if so, we need to invert
+    if np.mean(binary) < 127:
+        binary = cv2.bitwise_not(binary)
+    
+    # Remove small noise dots using morphological opening
+    # Small kernel to remove dots but preserve text structure
     kernel = np.ones((2, 2), np.uint8)
     cleaned = cv2.morphologyEx(binary, cv2.MORPH_OPEN, kernel, iterations=1)
     
-    # Invert back (characters should be dark on light background)
-    cleaned = cv2.bitwise_not(cleaned)
+    # Close small gaps in text
+    kernel_close = np.ones((2, 2), np.uint8)
+    cleaned = cv2.morphologyEx(cleaned, cv2.MORPH_CLOSE, kernel_close, iterations=1)
     
     return cleaned
 
@@ -34,12 +39,13 @@ def remove_background_noise(image):
 def preprocess_image(input_path, output_path):
     """
     Preprocess a single CAPTCHA image.
+    Keeps original resolution, outputs grayscale text on white background.
     
     Args:
         input_path: Path to input color image
         output_path: Path to save processed grayscale image
     """
-    # Read image
+    # Read image at original resolution
     img = cv2.imread(str(input_path))
     
     if img is None:
@@ -49,18 +55,11 @@ def preprocess_image(input_path, output_path):
     # Convert to grayscale
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     
-    # Remove background noise
+    # Remove small background noise dots
     cleaned = remove_background_noise(gray)
     
-    # Optional: Enhance contrast using CLAHE
-    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
-    enhanced = clahe.apply(cleaned)
-    
-    # Optional: Denoise
-    denoised = cv2.fastNlMeansDenoising(enhanced, h=10)
-    
-    # Save preprocessed image
-    cv2.imwrite(str(output_path), denoised)
+    # Save preprocessed image (grayscale text on white background)
+    cv2.imwrite(str(output_path), cleaned)
     
     return True
 
