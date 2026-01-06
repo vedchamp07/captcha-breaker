@@ -13,6 +13,19 @@ from src.model import CTCCaptchaModel, CTCCaptchaModelSimple
 
 def predict_image(model, image_path, characters, device):
     """Predict CAPTCHA text from image."""
+    # Handle relative/absolute paths
+    image_path = Path(image_path)
+    
+    # If relative path and doesn't exist, try relative to script
+    if not image_path.is_absolute() and not image_path.exists():
+        alt_path = Path(__file__).parent / image_path
+        if alt_path.exists():
+            image_path = alt_path
+    
+    # Final check
+    if not image_path.exists():
+        raise FileNotFoundError(f"Image not found: {image_path}")
+    
     # Load and preprocess image
     image = Image.open(image_path).convert('L')
     
