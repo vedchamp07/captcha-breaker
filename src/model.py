@@ -20,22 +20,26 @@ class CaptchaCNN(nn.Module):
         self.num_classes = num_classes
         self.captcha_length = captcha_length
         
-        # Convolutional layers
+        # Convolutional layers with Batch Normalization for better training stability
         self.conv_layers = nn.Sequential(
             # Input: 3 x 60 x 160
             nn.Conv2d(3, 32, kernel_size=3, padding=1),
+            nn.BatchNorm2d(32),
             nn.ReLU(),
             nn.MaxPool2d(2, 2),  # 32 x 30 x 80
             
             nn.Conv2d(32, 64, kernel_size=3, padding=1),
+            nn.BatchNorm2d(64),
             nn.ReLU(),
             nn.MaxPool2d(2, 2),  # 64 x 15 x 40
             
             nn.Conv2d(64, 128, kernel_size=3, padding=1),
+            nn.BatchNorm2d(128),
             nn.ReLU(),
             nn.MaxPool2d(2, 2),  # 128 x 7 x 20
             
             nn.Conv2d(128, 256, kernel_size=3, padding=1),
+            nn.BatchNorm2d(256),
             nn.ReLU(),
             nn.MaxPool2d(2, 2),  # 256 x 3 x 10
         )
@@ -43,19 +47,21 @@ class CaptchaCNN(nn.Module):
         # Calculate flattened size: 256 * 3 * 10 = 7680
         self.fc_input_size = 256 * 3 * 10
         
-        # Fully connected layers
+        # Fully connected layers (reduced from 1024->512 to 512->256)
         self.fc_layers = nn.Sequential(
-            nn.Linear(self.fc_input_size, 1024),
+            nn.Linear(self.fc_input_size, 512),
+            nn.BatchNorm1d(512),
             nn.ReLU(),
             nn.Dropout(0.5),
-            nn.Linear(1024, 512),
+            nn.Linear(512, 256),
+            nn.BatchNorm1d(256),
             nn.ReLU(),
-            nn.Dropout(0.5),
+            nn.Dropout(0.3),
         )
         
-        # Output layers: one for each character position
+        # Output layers: one for each character position (smaller, more efficient)
         self.output_layers = nn.ModuleList([
-            nn.Linear(512, num_classes) for _ in range(captcha_length)
+            nn.Linear(256, num_classes) for _ in range(captcha_length)
         ])
     
     def forward(self, x):
