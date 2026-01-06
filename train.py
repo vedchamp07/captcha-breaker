@@ -5,7 +5,7 @@ No bounding boxes needed!
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.utils.data import DataLoader, Dataset, random_split
+from torch.utils.data import DataLoader, Dataset, random_split, Subset
 from torchvision import transforms
 from PIL import Image
 import string
@@ -20,10 +20,11 @@ from src.model import CTCCaptchaModel, CTCCaptchaModelSimple
 DATA_DIR = Path("data/processed")  # or data/raw
 MODEL_SAVE_PATH = Path("models/captcha_model.pth")
 BATCH_SIZE = 64
-EPOCHS = 50
-LEARNING_RATE = 0.001
+EPOCHS = 60
+LEARNING_RATE = 0.0008
 TRAIN_SPLIT = 0.8
 USE_LSTM = True  # Set False for simpler/faster model
+USE_ATTENTION = True  # Enable self-attention on top of LSTM
 
 # Character set
 CHARACTERS = string.digits + string.ascii_uppercase
@@ -91,6 +92,8 @@ def train_epoch(model, dataloader, criterion, optimizer, device):
         
         # Backward pass
         loss.backward()
+        # Gradient clipping for stability
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
         optimizer.step()
         
         total_loss += loss.item()
@@ -186,19 +189,34 @@ def main():
         data_dir = DATA_DIR
     
     # Transforms
-    transform = transforms.Compose([
+    train_transform = transforms.Compose([
+        transforms.Resize((60, 160)),
+        transforms.RandomRotation(5, fill=0),
+        transforms.RandomAffine(degrees=0, translate=(0.05, 0.05), scale=(0.95, 1.05), shear=3, fill=0),
+        transforms.GaussianBlur(kernel_size=3, sigma=(0.1, 0.4)),
+        transforms.ColorJitter(brightness=0.1, contrast=0.1),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.5], std=[0.5])
+    ])
+
+    val_transform = transforms.Compose([
         transforms.Resize((60, 160)),
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.5], std=[0.5])
     ])
     
     # Dataset
-    dataset = SimpleCaptchaDataset(data_dir, CHARACTERS, transform=transform)
-    
-    # Split
-    train_size = int(TRAIN_SPLIT * len(dataset))
-    val_size = len(dataset) - train_size
-    train_dataset, val_dataset = random_split(dataset, [train_size, val_size])
+    base_dataset = SimpleCaptchaDataset(data_dir, CHARACTERS, transform=None)
+    # Split indices deterministically
+    total_len = len(base_dataset)
+    train_size = int(TRAIN_SPLIT * total_len)
+    indices = torch.randperm(total_len).tolist()
+    train_indices = indices[:train_size]
+    val_indices = indices[train_size:]
+
+    # Create train/val datasets with different transforms
+    train_dataset = Subset(SimpleCaptchaDataset(data_dir, CHARACTERS, transform=train_transform), train_indices)
+    val_dataset = Subset(SimpleCaptchaDataset(data_dir, CHARACTERS, transform=val_transform), val_indices)
     
     # DataLoaders
     num_workers = 2 if torch.cuda.is_available() else 0
@@ -209,8 +227,8 @@ def main():
     
     # Model
     if USE_LSTM:
-        print("Using CTC model with LSTM")
-        model = CTCCaptchaModel(num_classes=NUM_CLASSES, hidden_size=256, num_lstm_layers=2)
+        print("Using CTC model with LSTM" + (" + Attention" if USE_ATTENTION else ""))
+        model = CTCCaptchaModel(num_classes=NUM_CLASSES, hidden_size=256, num_lstm_layers=2, use_attention=USE_ATTENTION)
     else:
         print("Using simple CTC model (no LSTM)")
         model = CTCCaptchaModelSimple(num_classes=NUM_CLASSES)

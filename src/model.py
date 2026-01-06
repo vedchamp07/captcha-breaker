@@ -23,7 +23,7 @@ class CTCCaptchaModel(nn.Module):
     No need for bounding boxes - CTC figures out alignment automatically!
     """
     
-    def __init__(self, num_classes=36, hidden_size=256, num_lstm_layers=2):
+    def __init__(self, num_classes=36, hidden_size=256, num_lstm_layers=2, use_attention=False):
         """
         Args:
             num_classes: Number of character classes (36 for A-Z, 0-9)
@@ -82,6 +82,15 @@ class CTCCaptchaModel(nn.Module):
             dropout=0.3 if num_lstm_layers > 1 else 0,
             batch_first=True
         )
+
+        # Optional self-attention on top of LSTM outputs
+        self.use_attention = use_attention
+        if self.use_attention:
+            self.attn = nn.MultiheadAttention(hidden_size * 2, num_heads=4, dropout=0.1, batch_first=True)
+            self.attn_norm = nn.LayerNorm(hidden_size * 2)
+            self.attn_dropout = nn.Dropout(0.1)
+        else:
+            self.attn = None
         
         # Output layer: map LSTM outputs to character probabilities
         # +1 for CTC blank token
@@ -111,6 +120,11 @@ class CTCCaptchaModel(nn.Module):
         # Process with LSTM
         lstm_out, _ = self.lstm(features)  # (batch, 10, hidden_size*2)
         
+        # Optional attention
+        if self.attn is not None:
+            attn_out, _ = self.attn(lstm_out, lstm_out, lstm_out)
+            lstm_out = self.attn_norm(lstm_out + self.attn_dropout(attn_out))
+
         # Get character predictions for each time step
         logits = self.fc(lstm_out)  # (batch, 10, num_classes+1)
         
