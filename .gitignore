@@ -30,6 +30,11 @@ env/
 # IDE
 .vscode/
 .idea/
+
+# Gradio
+.gradio/
+.vscode/
+.idea/
 *.swp
 *.swo
 *~
