@@ -24,22 +24,18 @@ captcha-breaker/
 │   └── model.py                         # CTC-based CAPTCHA model
 ├── data/
 │   ├── train/                           # Training dataset (gitignored)
-│   │   ├── raw/                         # Generated CAPTCHA images
-│   │   └── processed/                   # Preprocessed images
+│   │   └── raw/                         # Generated CAPTCHA images
 │   ├── font_test/                       # Font test dataset (gitignored)
-│   │   ├── raw/
-│   │   └── processed/
+│   │   └── raw/
 │   ├── test/                            # Test dataset (gitignored)
-│   │   ├── raw/
-│   │   └── processed/
+│   │   └── raw/
 │   └── metadata.json                    # Dataset documentation
 ├── train_font_library/                  # Custom fonts (download separately)
 ├── models/
 │   └── captcha_model_v3.pth             # Trained model weights (latest)
-├── generate_dataset.py                  # Generate synthetic CAPTCHAs
+├── generate_dataset.py                  # Generate synthetic CAPTCHAs (confusion-aware)
 ├── generate_font_dataset.py             # Generate font test CAPTCHAs
-├── preprocess.py                        # Preprocess images (grayscale, denoise)
-├── preprocess_font_dataset.py           # Preprocess font test images
+├── generate_all_datasets.py             # Generate all datasets at once
 ├── train.py                             # Train the CTC model
 ├── predict.py                           # Predict on single image
 ├── evaluate.py                          # Batch evaluation with metrics
@@ -114,7 +110,6 @@ os.chdir("/kaggle/working/captcha-breaker")
 ```bash
 pip install -r requirements.txt
 python generate_dataset.py
-python preprocess.py
 python train.py
 ```
 
@@ -192,7 +187,7 @@ Trains for 60 epochs with:
 - Epochs: 60
 - Uses BiLSTM + optional self-attention (enabled by default)
 - CTC loss with automatic alignment
-- Best model saved to `models/captcha_model.pth`
+- Best model saved to `models/captcha_model_v3.pth`
 
 ### Make Predictions
 
@@ -297,13 +292,8 @@ EPOCHS = 60
 LEARNING_RATE = 0.0008
 USE_LSTM = True          # Set False for CNN-only model
 USE_ATTENTION = True     # Self-attention on top of BiLSTM outputs
+# Stronger augmentation to distinguish 0/O, 1/I/l, etc.
 ```
-
-**`preprocess.py`**
-
-- Grayscale conversion
-- Otsu's thresholding
-- Morphological noise removal
 
 ## 📊 Performance
 

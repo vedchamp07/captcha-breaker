@@ -9,6 +9,7 @@ from torch.utils.data import DataLoader, Dataset, random_split, Subset
 from torchvision import transforms
 from PIL import Image
 import string
+import random
 from pathlib import Path
 from tqdm import tqdm
 import numpy as np
@@ -19,7 +20,7 @@ from src.model import CTCCaptchaModel, CTCCaptchaModelSimple
 
 # Configuration
 DATA_DIR = Path("data/train/raw")  # Use raw images - preprocessing on-the-fly
-MODEL_SAVE_PATH = Path("models/captcha_model.pth")
+MODEL_SAVE_PATH = Path("models/captcha_model_v3.pth")
 BATCH_SIZE = 64
 EPOCHS = 60
 LEARNING_RATE = 0.0008
