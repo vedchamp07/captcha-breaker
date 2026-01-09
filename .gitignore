@@ -67,3 +67,10 @@ data/test/processed/
 train_font_library/
 
 *.zip
+
+# Test and debug files
+test_*.py
+debug_*.py
+*_test.py
+*_debug.py
+PADDING_FIX.md

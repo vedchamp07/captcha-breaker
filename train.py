@@ -131,25 +131,21 @@ class SimpleCaptchaDataset(Dataset):
 def collate_fn(batch):
     """Custom collate function to handle variable-length labels.
     
-    Pads labels to the maximum length in the batch.
+    For CTC loss, we flatten labels (concatenate them) instead of padding.
     """
     images, labels, label_texts = zip(*batch)
     
     # Stack images (all same size)
     images = torch.stack(images, 0)
     
-    # Pad labels to max length in batch
-    max_label_len = max(len(label) for label in labels)
-    padded_labels = []
-    for label in labels:
-        # Pad with zeros (which we'll ignore in loss calculation)
-        padding = torch.zeros(max_label_len - len(label), dtype=torch.long)
-        padded_label = torch.cat([label, padding])
-        padded_labels.append(padded_label)
+    # Flatten labels - concatenate all labels into one tensor
+    # CTC loss will use target_lengths to know where each label starts/ends
+    flattened_labels = torch.cat(labels)
     
-    labels = torch.stack(padded_labels, 0)
+    # Store original lengths for later use
+    label_lengths = torch.tensor([len(label) for label in labels], dtype=torch.long)
     
-    return images, labels, label_texts
+    return images, flattened_labels, label_lengths, label_texts
 
 
 def train_epoch(model, dataloader, criterion, optimizer, device):
@@ -160,9 +156,10 @@ def train_epoch(model, dataloader, criterion, optimizer, device):
     total = 0
     
     pbar = tqdm(dataloader, desc="Training")
-    for images, labels, label_texts in pbar:
+    for images, labels, target_lengths, label_texts in pbar:
         images = images.to(device)
         labels = labels.to(device)
+        target_lengths = target_lengths.to(device)
         
         optimizer.zero_grad()
         
@@ -171,17 +168,9 @@ def train_epoch(model, dataloader, criterion, optimizer, device):
         
         # Prepare for CTC loss - supports variable length targets!
         batch_size = images.size(0)
-        input_lengths = torch.full((batch_size,), log_probs.size(0), dtype=torch.long)
+        input_lengths = torch.full((batch_size,), log_probs.size(0), dtype=torch.long, device=device)
         
-        # Calculate actual target lengths for each sample (variable length support)
-        target_lengths = []
-        for label in labels:
-            # Count non-padding tokens (padding is 0 from dataset)
-            actual_length = (label != 0).sum().item()
-            target_lengths.append(actual_length)
-        target_lengths = torch.tensor(target_lengths, dtype=torch.long)
-        
-        # CTC loss
+        # CTC loss (labels are already flattened by collate_fn)
         loss = criterion(log_probs, labels, input_lengths, target_lengths)
         
         # Backward pass
@@ -192,10 +181,15 @@ def train_epoch(model, dataloader, criterion, optimizer, device):
         
         total_loss += loss.item()
         
-        # Calculate accuracy
+        # Calculate accuracy - compare predictions with label_texts (ground truth)
         predictions = model.predict(images)
         model.train()  # ← IMPORTANT: restore training mode after predict()
-        correct += (predictions == labels).all(dim=1).sum().item()
+        
+        # Compare with ground truth strings
+        for pred_indices, gt_text in zip(predictions, label_texts):
+            pred_text = ''.join([CHARACTERS[idx] for idx in pred_indices if idx < len(CHARACTERS)])
+            if pred_text == gt_text:
+                correct += 1
         total += batch_size
         
         pbar.set_postfix({
@@ -215,57 +209,42 @@ def validate(model, dataloader, criterion, device):
     
     with torch.no_grad():
         pbar = tqdm(dataloader, desc="Validation")
-        for images, labels, label_texts in pbar:
+        for images, labels, target_lengths, label_texts in pbar:
             images = images.to(device)
             labels = labels.to(device)
+            target_lengths = target_lengths.to(device)
             
             # Forward pass
             log_probs = model(images)
             
             # CTC loss with variable target lengths
             batch_size = images.size(0)
-            input_lengths = torch.full((batch_size,), log_probs.size(0), dtype=torch.long)
-            
-            # Calculate actual target lengths
-            target_lengths = []
-            for label in labels:
-                actual_length = (label != 0).sum().item()
-                target_lengths.append(actual_length)
-            target_lengths = torch.tensor(target_lengths, dtype=torch.long)
+            input_lengths = torch.full((batch_size,), log_probs.size(0), dtype=torch.long, device=device)
             
             loss = criterion(log_probs, labels, input_lengths, target_lengths)
             total_loss += loss.item()
             
-            # Calculate accuracy (decode without using predict() to avoid mode changes)
+            # Calculate accuracy - decode and compare with ground truth text
             _, preds = log_probs.max(2)  # (seq_len, batch)
             preds = preds.transpose(0, 1)  # (batch, seq_len)
             
             # Simple greedy decode
-            decoded = []
-            for pred_seq in preds:
+            for pred_seq, gt_text in zip(preds, label_texts):
                 decoded_seq = []
                 prev_char = None
                 for char_idx in pred_seq:
                     char_idx = char_idx.item()
-                    if char_idx == model.blank_idx:
+                    if char_idx == NUM_CLASSES:  # blank token
                         prev_char = None
                         continue
-                    if char_idx != prev_char:
-                        decoded_seq.append(char_idx)
+                    if char_idx != prev_char and char_idx < len(CHARACTERS):
+                        decoded_seq.append(CHARACTERS[char_idx])
                         prev_char = char_idx
-                decoded.append(decoded_seq)
+                
+                pred_text = ''.join(decoded_seq)
+                if pred_text == gt_text:
+                    correct += 1
             
-            # Pad to length 5
-            predictions = []
-            for seq in decoded:
-                if len(seq) < 5:
-                    seq = seq + [0] * (5 - len(seq))
-                else:
-                    seq = seq[:5]
-                predictions.append(seq)
-            predictions = torch.tensor(predictions, dtype=torch.long, device=device)
-            
-            correct += (predictions == labels).all(dim=1).sum().item()
             total += batch_size
             
             pbar.set_postfix({
@@ -307,18 +286,23 @@ def main():
         transforms.Normalize(mean=[0.5], std=[0.5])
     ])
     
-    # Dataset
-    base_dataset = SimpleCaptchaDataset(data_dir, CHARACTERS, transform=None)
-    # Split indices deterministically
-    total_len = len(base_dataset)
+    # Dataset - create two separate datasets with different transforms
+    full_dataset = SimpleCaptchaDataset(data_dir, CHARACTERS, transform=None)
+    total_len = len(full_dataset)
     train_size = int(TRAIN_SPLIT * total_len)
+    
+    # Split indices deterministically
     indices = torch.randperm(total_len).tolist()
     train_indices = indices[:train_size]
     val_indices = indices[train_size:]
-
-    # Create train/val datasets with different transforms
-    train_dataset = Subset(SimpleCaptchaDataset(data_dir, CHARACTERS, transform=train_transform), train_indices)
-    val_dataset = Subset(SimpleCaptchaDataset(data_dir, CHARACTERS, transform=val_transform), val_indices)
+    
+    # Create separate datasets with appropriate transforms
+    train_dataset_full = SimpleCaptchaDataset(data_dir, CHARACTERS, transform=train_transform)
+    val_dataset_full = SimpleCaptchaDataset(data_dir, CHARACTERS, transform=val_transform)
+    
+    # Use Subset to split
+    train_dataset = Subset(train_dataset_full, train_indices)
+    val_dataset = Subset(val_dataset_full, val_indices)
     
     # DataLoaders
     num_workers = 2 if torch.cuda.is_available() else 0
