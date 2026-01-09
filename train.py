@@ -296,8 +296,8 @@ def main():
         transforms.GaussianBlur(kernel_size=3, sigma=(0.1, 0.5)),  # Slightly more blur
         transforms.ColorJitter(brightness=0.15, contrast=0.15),  # More brightness/contrast variation
         transforms.ToTensor(),
-        # Random noise to force learning robust features
-        transforms.Lambda(lambda x: x + torch.randn_like(x) * 0.02 if random.random() < 0.3 else x),
+        # Random noise to force learning robust features (use torch.rand for DataLoader compatibility)
+        transforms.Lambda(lambda x: x + torch.randn_like(x) * 0.02 if torch.rand(1).item() < 0.3 else x),
         transforms.Normalize(mean=[0.5], std=[0.5])
     ])
 

@@ -34,12 +34,12 @@ captcha-breaker/
 ├── models/
 │   └── captcha_model_v3.pth             # Trained model weights (latest)
 ├── generate_dataset.py                  # Generate synthetic CAPTCHAs (confusion-aware)
-├── generate_font_dataset.py             # Generate font test CAPTCHAs
 ├── generate_all_datasets.py             # Generate all datasets at once
 ├── train.py                             # Train the CTC model
 ├── predict.py                           # Predict on single image
 ├── evaluate.py                          # Batch evaluation with metrics
 ├── analyze_confusion.py                 # Analyze character confusion matrix
+├── app.py                               # Gradio web interface
 ├── requirements.txt                     # Python dependencies
 └── README.md                            # This file
 ```
