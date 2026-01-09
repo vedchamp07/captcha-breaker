@@ -1,48 +1,56 @@
 {
   "dataset_name": "CAPTCHA Breaker Dataset",
-  "description": "Synthetic CAPTCHA images for training CTC-based recognition models. Dataset removed from repository to save space.",
+  "description": "Synthetic CAPTCHA images for training CTC-based recognition models with variable-length support (3-7 characters). Dataset stored as raw images only - preprocessing done on-the-fly.",
   "directory_structure": {
     "train": {
-      "description": "Training dataset with default font",
+      "description": "Training dataset with default font (variable-length)",
       "raw": "data/train/raw/",
-      "processed": "data/train/processed/",
-      "num_samples": 10000,
-      "regeneration": "python generate_dataset.py && python preprocess.py"
+      "num_samples": 383,
+      "num_chars": 62,
+      "char_range": "0-9, a-z, A-Z",
+      "text_length": "3-7 characters (variable)",
+      "regeneration": "python generate_dataset.py"
+    },
+    "test": {
+      "description": "Test dataset for model evaluation",
+      "raw": "data/test/raw/",
+      "num_samples": 1000,
+      "num_chars": 62,
+      "char_range": "0-9, a-z, A-Z",
+      "text_length": "3-7 characters (variable)",
+      "regeneration": "python -c \"from generate_all_datasets import generate_dataset; generate_dataset('test')\""
     },
     "font_test": {
       "description": "Test dataset using custom fonts from train_font_library/",
       "raw": "data/font_test/raw/",
-      "processed": "data/font_test/processed/",
-      "num_fonts": 23,
+      "num_fonts": 19,
       "images_per_font": 100,
-      "total_images": 2300,
-      "regeneration": "python generate_font_dataset.py && python preprocess_font_dataset.py",
-      "fonts_used": [
-        "Barrio", "CaesarDressing", "CoralPixels", "Coustard", "GoogleSansCode",
-        "Hanalei", "Inconsolata", "Jura", "LondrinaSketch", "Mansalva",
-        "MooLahLah", "Plaster", "RalewayDots", "Roboto", "RubikBurned",
-        "RubikGlitchPop", "RubikMicrobe", "SpecialElite", "Syncopate"
-      ],
-      "evaluation_results": {
-        "model": "captcha_model_improved.pth",
-        "overall_accuracy": "13.13%",
-        "correct": 302,
-        "total": 2300,
-        "note": "Model trained on standard fonts shows poor performance on custom fonts"
-      }
-    },
-    "test": {
-      "description": "Reserved for test dataset",
-      "raw": "data/test/raw/",
-      "processed": "data/test/processed/",
-      "status": "empty"
+      "total_images": 1900,
+      "num_chars": 62,
+      "char_range": "0-9, a-z, A-Z",
+      "text_length": "3-7 characters (variable)",
+      "regeneration": "python -c \"from generate_all_datasets import generate_dataset; generate_dataset('font_test')\""
     }
   },
   "captcha_config": {
-    "captcha_length": 5,
-    "characters": "0-9, A-Z",
+    "character_set": "Digits + Lowercase + Uppercase",
+    "total_chars": 62,
+    "characters": "0-9, a-z, A-Z",
+    "text_length_min": 3,
+    "text_length_max": 7,
+    "text_length_type": "variable",
     "image_format": "PNG",
     "image_size": "60x160"
+  },
+  "preprocessing": {
+    "description": "Applied on-the-fly during training and evaluation (no stored processed images)",
+    "steps": [
+      "Grayscale conversion",
+      "Otsu's thresholding for binarization",
+      "Morphological closing (3x3 ellipse kernel) for noise removal",
+      "Resize to 60x160",
+      "Tensor normalization (mean=0.5, std=0.5)"
+    ]
   },
   "font_library": {
     "description": "Custom fonts for generating diverse CAPTCHA test sets",

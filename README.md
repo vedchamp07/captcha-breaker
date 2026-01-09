@@ -70,25 +70,32 @@ source venv/bin/activate  # macOS/Linux
 # 3. Install dependencies
 pip install -r requirements.txt
 
-# 4. Generate training dataset
+# 4. Generate training dataset (variable-length, with lowercase)
 python generate_dataset.py
 
-# 5. Preprocess images
-python preprocess.py
-
-# 6. Train model
+# 5. Train model (preprocessing happens on-the-fly)
 python train.py
 
-# 7. Test prediction
-python predict.py data/train/processed/ABC12_0.png --use-attention
+# 6. Test prediction
+python predict.py data/train/raw/abc123_0.png --use-attention
+
+# 7. Batch evaluate
+python evaluate.py --model models/captcha_model.pth --data-dir data/test/raw
+```
+
+### Using the Gradio App
+
+```bash
+python app.py
+# Opens interactive web interface at http://localhost:7860
 ```
 
 ### Kaggle GPU Training
 
-Train on Kaggle with GPU (works for private repos):
+Train on Kaggle with GPU (recommended for speed):
 
 1. Enable GPU in notebook settings.
-2. Clone the repo using a GitHub token stored in Kaggle Secrets, then run training.
+2. Clone the repo using a GitHub token stored in Kaggle Secrets.
 
 ```python
 from kaggle_secrets import UserSecretsClient
@@ -134,32 +141,37 @@ CTC Loss: Automatic alignment learning
     ↓
 Greedy Decoding: Argmax + blank/duplicate removal
     ↓
-Output: 5-character sequence
+Output: Variable-length prediction (3-7 characters)
 ```
 
 **Model Stats:**
 
 - Parameters: ~4.02M
 - Input: Grayscale 60×160 images
-- Output: 5 characters from {0-9, A-Z}
+- Output: 3-7 characters from {0-9, a-z, A-Z}
+- Character Set: 62 total (digits + lowercase + uppercase)
 
 ## 💻 Usage
 
-### Generate Synthetic Dataset
+### Generate Synthetic Datasets
 
 ```bash
+# Training dataset (variable-length, 3-7 chars)
 python generate_dataset.py
+
+# Generates: data/train/raw/ with ~10,000 CAPTCHAs
 ```
 
-Creates 10,000 random 5-character CAPTCHAs in `data/raw/`
+### Preprocessing
 
-### Preprocess Images
+**No longer needed!** Preprocessing now happens automatically:
 
-```bash
-python preprocess.py
-```
+- Grayscale conversion
+- Otsu's thresholding
+- Morphological denoising
+- Resize & normalization
 
-Converts to grayscale, applies denoising → saves to `data/processed/`
+All done **on-the-fly during training/testing**.
 
 ### Train Model
 
@@ -171,6 +183,8 @@ Trains for 60 epochs with:
 
 - Batch size: 64
 - Learning rate: 0.0008 (with ReduceLROnPlateau scheduler)
+- Character set: 0-9, a-z, A-Z (62 total)
+- Text length: 3-7 characters (variable)
 - Epochs: 60
 - Uses BiLSTM + optional self-attention (enabled by default)
 - CTC loss with automatic alignment
@@ -185,27 +199,41 @@ python predict.py <image_path>
 Example:
 
 ```bash
-python predict.py data/train/processed/ABC12_0.png --use-attention
+python predict.py data/train/raw/abc123_0.png --use-attention
 ```
 
 Output:
 
 ```
-Predicted: ABC12
-Ground Truth: ABC12
+Predicted: abc123
+Ground Truth: abc123
 Correct: ✓
 ```
 
 ### Batch Evaluation
 
 ```bash
-python evaluate.py --model models/captcha_model_improved.pth --use-attention
+python evaluate.py --model models/captcha_model_improved.pth --data-dir data/test/raw --use-attention
 ```
 
 Options:
 
-- `--data-dir`: Directory with images (default: `data/train/processed`)
+- `--data-dir`: Directory with raw images (default: `data/test/raw`)
 - `--max-samples`: Limit number of samples to evaluate
+- `--use-attention`: Enable attention mechanism in model
+
+### Interactive Web App (Gradio)
+
+```bash
+python app.py
+```
+
+Opens at `http://localhost:7860` with:
+- Image upload interface
+- Real-time predictions
+- Preprocessing preview
+- Ground truth comparison
+- Beautiful, responsive UI
 
 ## ⚙️ Configuration
 
@@ -215,6 +243,8 @@ Edit these scripts to customize:
 
 ```python
 NUM_SAMPLES = 10000      # Number of images
+MIN_LENGTH = 3           # Minimum text length
+MAX_LENGTH = 7           # Maximum text length
 CAPTCHA_LENGTH = 5       # Characters per CAPTCHA
 ```
 
