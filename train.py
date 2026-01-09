@@ -12,12 +12,13 @@ import string
 from pathlib import Path
 from tqdm import tqdm
 import numpy as np
+import cv2
 
 from src.model import CTCCaptchaModel, CTCCaptchaModelSimple
 
 
 # Configuration
-DATA_DIR = Path("data/train/processed")  # or data/train/raw
+DATA_DIR = Path("data/train/raw")  # Use raw images - preprocessing on-the-fly
 MODEL_SAVE_PATH = Path("models/captcha_model.pth")
 BATCH_SIZE = 64
 EPOCHS = 60
@@ -31,8 +32,35 @@ CHARACTERS = string.digits + string.ascii_lowercase + string.ascii_uppercase
 NUM_CLASSES = len(CHARACTERS)
 
 
+def preprocess_image(image):
+    """
+    Preprocess image: grayscale, thresholding, morphological operations.
+    
+    Args:
+        image: PIL Image
+    
+    Returns:
+        Preprocessed PIL Image
+    """
+    # Convert to numpy array
+    img_array = np.array(image.convert('L'))
+    
+    # Apply Otsu's thresholding
+    _, binary = cv2.threshold(img_array, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    
+    # Morphological closing to remove noise
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+    processed = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, kernel)
+    
+    # Convert back to PIL Image
+    return Image.fromarray(processed)
+
+
 class SimpleCaptchaDataset(Dataset):
-    """Simple dataset - just images and labels, no bboxes!"""
+    """Simple dataset - just images and labels, no bboxes!
+    
+    Preprocessing is done on-the-fly during training for efficiency.
+    """
     
     def __init__(self, data_dir, characters, transform=None):
         self.data_dir = Path(data_dir)
@@ -55,6 +83,9 @@ class SimpleCaptchaDataset(Dataset):
         
         # Load image
         image = Image.open(img_path).convert('L')
+        
+        # Preprocess image on-the-fly
+        image = preprocess_image(image)
         
         if self.transform:
             image = self.transform(image)

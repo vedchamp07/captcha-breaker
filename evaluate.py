@@ -9,14 +9,41 @@ import string
 from pathlib import Path
 import argparse
 from tqdm import tqdm
+import numpy as np
+import cv2
 
 from src.model import CTCCaptchaModel, CTCCaptchaModelSimple
+
+
+def preprocess_image(image):
+    """
+    Preprocess image: grayscale, thresholding, morphological operations.
+    
+    Args:
+        image: PIL Image
+    
+    Returns:
+        Preprocessed PIL Image
+    """
+    # Convert to numpy array
+    img_array = np.array(image.convert('L'))
+    
+    # Apply Otsu's thresholding
+    _, binary = cv2.threshold(img_array, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    
+    # Morphological closing to remove noise
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+    processed = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, kernel)
+    
+    # Convert back to PIL Image
+    return Image.fromarray(processed)
 
 
 def predict_image(model, image_path, characters, device):
     """Predict CAPTCHA text from image."""
     # Load and preprocess image
     image = Image.open(image_path).convert('L')
+    image = preprocess_image(image)
     
     transform = transforms.Compose([
         transforms.Resize((60, 160)),
@@ -145,7 +172,7 @@ def main():
     parser = argparse.ArgumentParser(description='Evaluate CAPTCHA model on batch of images')
     parser.add_argument('--model', type=str, default='models/captcha_model.pth',
                        help='Path to model checkpoint')
-    parser.add_argument('--data-dir', type=str, default='data/train/processed',
+    parser.add_argument('--data-dir', type=str, default='data/test/raw',
                        help='Directory containing CAPTCHA images')
     parser.add_argument('--max-samples', type=int, default=None,
                        help='Maximum number of samples to evaluate (default: all)')
