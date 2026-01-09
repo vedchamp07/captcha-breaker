@@ -90,6 +90,9 @@ def evaluate_batch(model_path, data_dir, characters, device, use_attention=False
     if max_samples:
         image_files = image_files[:max_samples]
     
+    print(f"\nModel: {model_path}")
+    print(f"Device: {device}")
+    print(f"Character Set: {len(characters)} chars ({characters[:10]}...{characters[-10:]})")
     print(f"Evaluating on {len(image_files)} images...\n")
     
     correct = 0
@@ -170,7 +173,7 @@ def evaluate_batch(model_path, data_dir, characters, device, use_attention=False
 
 def main():
     parser = argparse.ArgumentParser(description='Evaluate CAPTCHA model on batch of images')
-    parser.add_argument('--model', type=str, default='models/captcha_model.pth',
+    parser.add_argument('--model', type=str, default='models/captcha_model_v3.pth',
                        help='Path to model checkpoint')
     parser.add_argument('--data-dir', type=str, default='data/test/raw',
                        help='Directory containing CAPTCHA images')
@@ -178,15 +181,15 @@ def main():
                        help='Maximum number of samples to evaluate (default: all)')
     parser.add_argument('--use-lstm', action='store_true', default=True,
                        help='Use LSTM model (default: True)')
-    parser.add_argument('--use-attention', action='store_true', default=False,
-                       help='Enable self-attention in LSTM model')
+    parser.add_argument('--use-attention', action='store_true', default=True,
+                       help='Enable self-attention in LSTM model (default: True)')
     args = parser.parse_args()
     
     # Setup
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}\n")
     
-    characters = string.digits + string.ascii_uppercase
+    characters = string.digits + string.ascii_lowercase + string.ascii_uppercase
     
     # Evaluate
     accuracy, correct, total = evaluate_batch(

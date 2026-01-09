@@ -35,7 +35,7 @@ captcha-breaker/
 │   └── metadata.json                    # Dataset documentation
 ├── train_font_library/                  # Custom fonts (download separately)
 ├── models/
-│   └── captcha_model_improved.pth       # Trained model weights
+│   └── captcha_model_v3.pth             # Trained model weights (latest)
 ├── generate_dataset.py                  # Generate synthetic CAPTCHAs
 ├── generate_font_dataset.py             # Generate font test CAPTCHAs
 ├── preprocess.py                        # Preprocess images (grayscale, denoise)
@@ -43,6 +43,7 @@ captcha-breaker/
 ├── train.py                             # Train the CTC model
 ├── predict.py                           # Predict on single image
 ├── evaluate.py                          # Batch evaluation with metrics
+├── analyze_confusion.py                 # Analyze character confusion matrix
 ├── requirements.txt                     # Python dependencies
 └── README.md                            # This file
 ```
@@ -70,7 +71,7 @@ source venv/bin/activate  # macOS/Linux
 # 3. Install dependencies
 pip install -r requirements.txt
 
-# 4. Generate training dataset (variable-length, with lowercase)
+# 4. Generate training dataset (with confusion-aware sampling)
 python generate_dataset.py
 
 # 5. Train model (preprocessing happens on-the-fly)
@@ -80,7 +81,10 @@ python train.py
 python predict.py data/train/raw/abc123_0.png --use-attention
 
 # 7. Batch evaluate
-python evaluate.py --model models/captcha_model.pth --data-dir data/test/raw
+python evaluate.py --model models/captcha_model_v3.pth --data-dir data/test/raw
+
+# 8. Analyze character confusion (0/O, 1/I/l, etc.)
+python analyze_confusion.py --model models/captcha_model_v3.pth
 ```
 
 ### Using the Gradio App
@@ -213,7 +217,7 @@ Correct: ✓
 ### Batch Evaluation
 
 ```bash
-python evaluate.py --model models/captcha_model_improved.pth --data-dir data/test/raw --use-attention
+python evaluate.py --model models/captcha_model_v3.pth --data-dir data/test/raw --use-attention
 ```
 
 Options:
@@ -222,6 +226,14 @@ Options:
 - `--max-samples`: Limit number of samples to evaluate
 - `--use-attention`: Enable attention mechanism in model
 
+### Analyze Character Confusion
+
+```bash
+python analyze_confusion.py --model models/captcha_model_v3.pth --data-dir data/test/raw
+```
+
+Analyzes which characters are most often confused (e.g., 0/O, 1/I/l) and generates a detailed confusion matrix.
+
 ### Interactive Web App (Gradio)
 
 ```bash
@@ -229,11 +241,40 @@ python app.py
 ```
 
 Opens at `http://localhost:7860` with:
+
 - Image upload interface
 - Real-time predictions
 - Preprocessing preview
 - Ground truth comparison
 - Beautiful, responsive UI
+
+## 🎯 Confusion Mitigation (0/O, 1/I/l, etc.)
+
+The model implements several strategies to reduce confusion between visually similar characters:
+
+### 1. Confusion-Aware Data Generation
+
+- 40% of training samples include confusing character pairs
+- Targeted generation for pairs like: 0/O, 1/I/l, 5/S, 8/B, 6/b, 2/Z
+- See [generate_dataset.py](generate_dataset.py#L16-L22)
+
+### 2. Enhanced Data Augmentation
+
+- Stronger rotation (±8°), affine transforms, and blur
+- Random noise injection (30% of samples)
+- Forces model to learn robust distinctive features
+- See [train.py](train.py#L280-L290)
+
+### 3. Confusion Analysis Tool
+
+- Character-level confusion matrix
+- Identifies most problematic character pairs
+- Helps monitor training effectiveness
+- Run: `python analyze_confusion.py`
+
+**Why not just remove confusing characters?**
+
+Real-world CAPTCHAs include these characters, so the model must learn to distinguish them. Our approach teaches the model to focus on subtle differences (e.g., 0 is rounder, O is taller).
 
 ## ⚙️ Configuration
 
@@ -245,7 +286,7 @@ Edit these scripts to customize:
 NUM_SAMPLES = 10000      # Number of images
 MIN_LENGTH = 3           # Minimum text length
 MAX_LENGTH = 7           # Maximum text length
-CAPTCHA_LENGTH = 5       # Characters per CAPTCHA
+# 40% samples include confusing chars (0/O, 1/I/l, etc.)
 ```
 
 **`train.py`**
@@ -276,7 +317,7 @@ USE_ATTENTION = True     # Self-attention on top of BiLSTM outputs
 
 ## 🧪 Checkpoints
 
-- [models/captcha_model_improved.pth](models/captcha_model_improved.pth): validation loss 86.05%
+- [models/captcha_model_v3.pth](models/captcha_model_v3.pth): Latest model with variable-length and lowercase support
 
 ## 🛠️ Technology Stack
 
@@ -289,8 +330,8 @@ USE_ATTENTION = True     # Self-attention on top of BiLSTM outputs
 
 ## 📝 Notes
 
-- Images are 60×160 grayscale
-- 5-character CAPTCHA: digits (0-9) + uppercase letters (A-Z)
+- Images are 60×160 grayscale (auto-resized in app if needed)
+- Variable-length CAPTCHAs (3-7 characters): digits (0-9) + lowercase (a-z) + uppercase (A-Z)
 - CTC handles variable character spacing without explicit bounding boxes
 - Model works on CPU but trains much faster on GPU (50× speedup typical)
 

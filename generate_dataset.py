@@ -19,10 +19,36 @@ OUTPUT_DIR = Path("data/train/raw")
 # Character set (digits + lowercase + uppercase letters)
 CHARACTERS = string.digits + string.ascii_lowercase + string.ascii_uppercase
 
-def generate_captcha_text():
-    """Generate random captcha text with variable length."""
+# Confusing character pairs that need more training examples
+CONFUSING_PAIRS = [
+    ('0', 'O'),  # Zero and uppercase O
+    ('1', 'I', 'l'),  # One, uppercase I, lowercase L
+    ('5', 'S'),  # Five and uppercase S
+    ('8', 'B'),  # Eight and uppercase B
+    ('6', 'b'),  # Six and lowercase b
+    ('2', 'Z'),  # Two and uppercase Z
+]
+
+def generate_captcha_text(force_confusing=False):
+    """Generate random captcha text with variable length.
+    
+    Args:
+        force_confusing: If True, ensure at least one confusing character is included
+    """
     length = random.randint(MIN_LENGTH, MAX_LENGTH)
-    return ''.join(random.choices(CHARACTERS, k=length))
+    
+    if force_confusing and random.random() < 0.3:  # 30% chance to force confusing chars
+        # Pick a random confusing pair and include at least one character from it
+        confusing_group = random.choice(CONFUSING_PAIRS)
+        text = list(random.choices(CHARACTERS, k=length))
+        # Replace random position(s) with confusing characters
+        num_replacements = random.randint(1, min(2, length))
+        for _ in range(num_replacements):
+            pos = random.randint(0, length - 1)
+            text[pos] = random.choice(confusing_group)
+        return ''.join(text)
+    else:
+        return ''.join(random.choices(CHARACTERS, k=length))
 
 def main():
     # Create output directory
@@ -36,9 +62,13 @@ def main():
     print(f"Characters used: {CHARACTERS}")
     print(f"Output directory: {OUTPUT_DIR}")
     
+    # Generate 40% with forced confusing characters
+    num_confusing = int(NUM_SAMPLES * 0.4)
+    
     for i in range(NUM_SAMPLES):
-        # Generate random text
-        captcha_text = generate_captcha_text()
+        # Generate random text (force confusing chars for first 40% of samples)
+        force_confusing = i < num_confusing
+        captcha_text = generate_captcha_text(force_confusing=force_confusing)
         
         # Generate image
         image = generator.generate(captcha_text)
@@ -50,7 +80,7 @@ def main():
         generator.write(captcha_text, str(filepath))
         
         if (i + 1) % 1000 == 0:
-            print(f"Generated {i + 1}/{NUM_SAMPLES} images...")
+            print(f"Generated {i + 1}/{NUM_SAMPLES} images... (confusing: {min(i+1, num_confusing)})")
     
     print(f"\nSuccessfully generated {NUM_SAMPLES} CAPTCHA images!")
     print(f"Saved to: {OUTPUT_DIR}")

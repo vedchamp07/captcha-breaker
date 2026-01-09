@@ -17,7 +17,7 @@ from src.model import CTCCaptchaModel
 # Setup
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 CHARACTERS = string.digits + string.ascii_lowercase + string.ascii_uppercase
-MODEL_PATH = Path("models/captcha_model_improved.pth")
+MODEL_PATH = Path("models/captcha_model_v3.pth")
 
 # Load model
 model = CTCCaptchaModel(num_classes=len(CHARACTERS), use_attention=True)
@@ -79,6 +79,10 @@ def predict_captcha(image, ground_truth=""):
         # Convert to PIL Image if numpy array
         if isinstance(image, np.ndarray):
             image = Image.fromarray(image)
+        
+        # Resize image if not standard dimensions (60x160)
+        if image.size != (160, 60):
+            image = image.resize((160, 60), Image.LANCZOS)
         
         # Preprocess image
         processed_image = preprocess_image(image)
@@ -171,6 +175,7 @@ with gr.Blocks(title="🔐 CAPTCHA Breaker", theme=gr.themes.Soft()) as demo:
         with gr.Column():
             gr.Markdown("#### 🔬 Preprocessing Steps Applied:")
             gr.Markdown("""
+            - ✓ Auto-resize to 60×160 (if needed)
             - ✓ Grayscale conversion
             - ✓ Otsu's thresholding
             - ✓ Morphological closing (denoising)
@@ -201,7 +206,7 @@ with gr.Blocks(title="🔐 CAPTCHA Breaker", theme=gr.themes.Soft()) as demo:
         ### 🏗️ Architecture
         
         ```
-        Input Image (1, 60, 160)
+        Input Image (1, 60, 160) [Auto-resized if needed]
             ↓
         CNN: 4 Convolutional Blocks
           • Progressive feature extraction
@@ -222,15 +227,16 @@ with gr.Blocks(title="🔐 CAPTCHA Breaker", theme=gr.themes.Soft()) as demo:
         Output: Variable-length prediction (3-7 characters)
         ```
         
-        ### 📈 Model Capabilities
+        ### 📈 Model Capabilities (v3)
         
         | Feature | Details |
         |---------|---------|
+        | **Model Version** | v3 (Latest) |
         | **Text Length** | 3-7 characters (variable) |
         | **Character Set** | 0-9, a-z, A-Z (62 total) |
         | **Architecture** | CNN + LSTM + Attention |
         | **Training Data** | 10,000 synthetic CAPTCHAs |
-        | **Training Epochs** | 60 |
+        | **Image Resize** | Automatic (any size → 60×160) |
         
         ### ⚠️ Known Limitations
         

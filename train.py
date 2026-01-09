@@ -31,6 +31,37 @@ USE_ATTENTION = True  # Enable self-attention on top of LSTM
 CHARACTERS = string.digits + string.ascii_lowercase + string.ascii_uppercase
 NUM_CLASSES = len(CHARACTERS)
 
+# Confusing character pairs for confusion penalty
+CONFUSING_PAIRS = [
+    ('0', 'O'),  # Zero and uppercase O
+    ('1', 'I', 'l'),  # One, uppercase I, lowercase L
+    ('5', 'S'),  # Five and uppercase S
+    ('8', 'B'),  # Eight and uppercase B
+    ('6', 'b'),  # Six and lowercase b
+    ('2', 'Z'),  # Two and uppercase Z
+]
+
+
+def build_confusion_matrix(characters, confusing_pairs):
+    """Build a confusion penalty matrix for similar characters.
+    
+    Returns a matrix where element [i][j] is the penalty for confusing char i with char j.
+    """
+    char_to_idx = {char: idx for idx, char in enumerate(characters)}
+    n = len(characters)
+    confusion_matrix = torch.zeros((n, n))
+    
+    # Add penalties for confusing character pairs
+    for group in confusing_pairs:
+        indices = [char_to_idx[c] for c in group if c in char_to_idx]
+        # Add penalty between all pairs in this group
+        for i in indices:
+            for j in indices:
+                if i != j:
+                    confusion_matrix[i][j] = 2.0  # 2x penalty for confusing similar chars
+    
+    return confusion_matrix
+
 
 def preprocess_image(image):
     """
@@ -94,6 +125,30 @@ class SimpleCaptchaDataset(Dataset):
         label = [self.char_to_idx[c] for c in label_text]
         
         return image, torch.tensor(label, dtype=torch.long), label_text
+
+
+def collate_fn(batch):
+    """Custom collate function to handle variable-length labels.
+    
+    Pads labels to the maximum length in the batch.
+    """
+    images, labels, label_texts = zip(*batch)
+    
+    # Stack images (all same size)
+    images = torch.stack(images, 0)
+    
+    # Pad labels to max length in batch
+    max_label_len = max(len(label) for label in labels)
+    padded_labels = []
+    for label in labels:
+        # Pad with zeros (which we'll ignore in loss calculation)
+        padding = torch.zeros(max_label_len - len(label), dtype=torch.long)
+        padded_label = torch.cat([label, padding])
+        padded_labels.append(padded_label)
+    
+    labels = torch.stack(padded_labels, 0)
+    
+    return images, labels, label_texts
 
 
 def train_epoch(model, dataloader, criterion, optimizer, device):
@@ -232,14 +287,16 @@ def main():
     else:
         data_dir = DATA_DIR
     
-    # Transforms
+    # Transforms - stronger augmentation to learn distinctive features
     train_transform = transforms.Compose([
         transforms.Resize((60, 160)),
-        transforms.RandomRotation(5, fill=0),
-        transforms.RandomAffine(degrees=0, translate=(0.05, 0.05), scale=(0.95, 1.05), shear=3, fill=0),
-        transforms.GaussianBlur(kernel_size=3, sigma=(0.1, 0.4)),
-        transforms.ColorJitter(brightness=0.1, contrast=0.1),
+        transforms.RandomRotation(8, fill=0),  # Increased rotation
+        transforms.RandomAffine(degrees=0, translate=(0.08, 0.08), scale=(0.9, 1.1), shear=5, fill=0),  # Stronger affine
+        transforms.GaussianBlur(kernel_size=3, sigma=(0.1, 0.5)),  # Slightly more blur
+        transforms.ColorJitter(brightness=0.15, contrast=0.15),  # More brightness/contrast variation
         transforms.ToTensor(),
+        # Random noise to force learning robust features
+        transforms.Lambda(lambda x: x + torch.randn_like(x) * 0.02 if random.random() < 0.3 else x),
         transforms.Normalize(mean=[0.5], std=[0.5])
     ])
 
@@ -265,9 +322,9 @@ def main():
     # DataLoaders
     num_workers = 2 if torch.cuda.is_available() else 0
     train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, 
-                             shuffle=True, num_workers=num_workers)
+                             shuffle=True, num_workers=num_workers, collate_fn=collate_fn)
     val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, 
-                           shuffle=False, num_workers=num_workers)
+                           shuffle=False, num_workers=num_workers, collate_fn=collate_fn)
     
     # Model
     if USE_LSTM:

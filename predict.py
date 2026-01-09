@@ -78,17 +78,17 @@ def predict_image(model, image_path, characters, device):
 def main():
     parser = argparse.ArgumentParser(description='Predict CAPTCHA using CTC model')
     parser.add_argument('image_path', type=str, help='Path to CAPTCHA image')
-    parser.add_argument('--model', type=str, default='models/captcha_model.pth',
+    parser.add_argument('--model', type=str, default='models/captcha_model_v3.pth',
                        help='Path to model checkpoint')
     parser.add_argument('--use-lstm', action='store_true', default=True,
                        help='Use LSTM model (default: True)')
-    parser.add_argument('--use-attention', action='store_true', default=False,
-                       help='Enable self-attention in LSTM model')
+    parser.add_argument('--use-attention', action='store_true', default=True,
+                       help='Enable self-attention in LSTM model (default: True)')
     args = parser.parse_args()
     
     # Setup
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    characters = string.digits + string.ascii_uppercase
+    characters = string.digits + string.ascii_lowercase + string.ascii_uppercase
     
     # Load model
     if args.use_lstm:
