@@ -1,0 +1,20 @@
+{
+  "dataset_name": "CAPTCHA Breaker Dataset",
+  "description": "Synthetic CAPTCHA images for training CTC-based recognition models. Dataset removed from repository to save space.",
+  "num_samples": 10000,
+  "captcha_length": 5,
+  "characters": "0-9, A-Z",
+  "image_format": "PNG",
+  "raw_images": {
+    "description": "Original generated CAPTCHA images",
+    "size": "60x160",
+    "format": "RGB"
+  },
+  "processed_images": {
+    "description": "Preprocessed grayscale images with denoising",
+    "size": "60x160",
+    "format": "Grayscale"
+  },
+  "regeneration_instructions": "Run 'python generate_dataset.py' to create raw images, then 'python preprocess.py' to generate processed images.",
+  "note": "This file replaces the actual dataset files to keep the repository lightweight."
+}
