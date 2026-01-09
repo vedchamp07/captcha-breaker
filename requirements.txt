@@ -6,3 +6,4 @@ numpy
 matplotlib
 tqdm
 opencv-python  # For preprocessing (grayscale, noise removal)
+gradio  # For interactive web app
