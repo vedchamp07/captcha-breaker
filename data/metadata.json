@@ -1,20 +1,55 @@
 {
   "dataset_name": "CAPTCHA Breaker Dataset",
   "description": "Synthetic CAPTCHA images for training CTC-based recognition models. Dataset removed from repository to save space.",
-  "num_samples": 10000,
-  "captcha_length": 5,
-  "characters": "0-9, A-Z",
-  "image_format": "PNG",
-  "raw_images": {
-    "description": "Original generated CAPTCHA images",
-    "size": "60x160",
-    "format": "RGB"
+  "directory_structure": {
+    "train": {
+      "description": "Training dataset with default font",
+      "raw": "data/train/raw/",
+      "processed": "data/train/processed/",
+      "num_samples": 10000,
+      "regeneration": "python generate_dataset.py && python preprocess.py"
+    },
+    "font_test": {
+      "description": "Test dataset using custom fonts from train_font_library/",
+      "raw": "data/font_test/raw/",
+      "processed": "data/font_test/processed/",
+      "num_fonts": 23,
+      "images_per_font": 100,
+      "total_images": 2300,
+      "regeneration": "python generate_font_dataset.py && python preprocess_font_dataset.py",
+      "fonts_used": [
+        "Barrio", "CaesarDressing", "CoralPixels", "Coustard", "GoogleSansCode",
+        "Hanalei", "Inconsolata", "Jura", "LondrinaSketch", "Mansalva",
+        "MooLahLah", "Plaster", "RalewayDots", "Roboto", "RubikBurned",
+        "RubikGlitchPop", "RubikMicrobe", "SpecialElite", "Syncopate"
+      ],
+      "evaluation_results": {
+        "model": "captcha_model_improved.pth",
+        "overall_accuracy": "13.13%",
+        "correct": 302,
+        "total": 2300,
+        "note": "Model trained on standard fonts shows poor performance on custom fonts"
+      }
+    },
+    "test": {
+      "description": "Reserved for test dataset",
+      "raw": "data/test/raw/",
+      "processed": "data/test/processed/",
+      "status": "empty"
+    }
   },
-  "processed_images": {
-    "description": "Preprocessed grayscale images with denoising",
-    "size": "60x160",
-    "format": "Grayscale"
+  "captcha_config": {
+    "captcha_length": 5,
+    "characters": "0-9, A-Z",
+    "image_format": "PNG",
+    "image_size": "60x160"
   },
-  "regeneration_instructions": "Run 'python generate_dataset.py' to create raw images, then 'python preprocess.py' to generate processed images.",
-  "note": "This file replaces the actual dataset files to keep the repository lightweight."
+  "font_library": {
+    "description": "Custom fonts for generating diverse CAPTCHA test sets",
+    "location": "train_font_library/ (not in repository)",
+    "download_url": "https://drive.google.com/drive/folders/1mv5Z4Z8xpMHryvfceCBbgtObwcVjGApI",
+    "instructions": "Download fonts from Google Drive and place in train_font_library/ directory to use font test features"
+  },
+  "note": "All datasets and images are gitignored to keep repository lightweight. Use regeneration commands to create locally."
+}
 }

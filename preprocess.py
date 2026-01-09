@@ -66,9 +66,9 @@ def preprocess_image(input_path, output_path):
 
 def main():
     parser = argparse.ArgumentParser(description='Preprocess CAPTCHA images')
-    parser.add_argument('--input_dir', type=str, default='data/raw',
+    parser.add_argument('--input_dir', type=str, default='data/train/raw',
                         help='Input directory with raw CAPTCHA images')
-    parser.add_argument('--output_dir', type=str, default='data/processed',
+    parser.add_argument('--output_dir', type=str, default='data/train/processed',
                         help='Output directory for processed images')
     
     args = parser.parse_args()

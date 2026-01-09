@@ -17,7 +17,7 @@ from src.model import CTCCaptchaModel, CTCCaptchaModelSimple
 
 
 # Configuration
-DATA_DIR = Path("data/processed")  # or data/raw
+DATA_DIR = Path("data/train/processed")  # or data/train/raw
 MODEL_SAVE_PATH = Path("models/captcha_model.pth")
 BATCH_SIZE = 64
 EPOCHS = 60
@@ -183,7 +183,7 @@ def main():
     
     # Check data directory
     if not DATA_DIR.exists() or len(list(DATA_DIR.glob("*.png"))) == 0:
-        data_dir = Path("data/raw")
+        data_dir = Path("data/train/raw")
         print(f"Using raw data from {data_dir}")
     else:
         data_dir = DATA_DIR

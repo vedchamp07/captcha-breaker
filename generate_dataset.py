@@ -13,7 +13,7 @@ NUM_SAMPLES = 10000  # Number of captchas to generate
 CAPTCHA_LENGTH = 5   # Length of each captcha text
 IMAGE_WIDTH = 160
 IMAGE_HEIGHT = 60
-OUTPUT_DIR = Path("data/raw")
+OUTPUT_DIR = Path("data/train/raw")
 
 # Character set (digits + uppercase letters)
 CHARACTERS = string.digits + string.ascii_uppercase

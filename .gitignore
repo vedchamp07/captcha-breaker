@@ -40,6 +40,22 @@ Thumbs.db
 
 # Project specific
 models/captcha_model*.pth
-data/raw/
-data/processed/
+
+# Data directories - regenerate locally
+data/train/raw/
+data/train/processed/
+data/font_test/raw/
+data/font_test/processed/
+data/test/raw/
+data/test/processed/
+
+# Image files
+*.png
+*.jpg
+*.jpeg
+*.gif
+
+# Font library - download from Google Drive
+train_font_library/
+
 *.zip

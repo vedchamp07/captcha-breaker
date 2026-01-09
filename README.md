@@ -21,21 +21,39 @@ This project uses a **CNN + LSTM + CTC** architecture to recognize text in CAPTC
 captcha-breaker/
 ├── src/
 │   ├── __init__.py
-│   └── model.py                    # CTC-based CAPTCHA model
+│   └── model.py                         # CTC-based CAPTCHA model
 ├── data/
-│   ├── raw/                        # Generated CAPTCHA images
-│   └── processed/                  # Preprocessed images (grayscale)
+│   ├── train/                           # Training dataset (gitignored)
+│   │   ├── raw/                         # Generated CAPTCHA images
+│   │   └── processed/                   # Preprocessed images
+│   ├── font_test/                       # Font test dataset (gitignored)
+│   │   ├── raw/
+│   │   └── processed/
+│   ├── test/                            # Test dataset (gitignored)
+│   │   ├── raw/
+│   │   └── processed/
+│   └── metadata.json                    # Dataset documentation
+├── train_font_library/                  # Custom fonts (download separately)
 ├── models/
-│   └── captcha_model.pth           # Trained model weights
-├── generate_dataset.py             # Generate synthetic CAPTCHAs
-├── preprocess.py                   # Preprocess images (grayscale, denoise)
-├── train.py                        # Train the CTC model
-├── predict.py                      # Predict on single image
-├── requirements.txt                # Python dependencies
-└── README.md                       # This file
+│   └── captcha_model_improved.pth       # Trained model weights
+├── generate_dataset.py                  # Generate synthetic CAPTCHAs
+├── generate_font_dataset.py             # Generate font test CAPTCHAs
+├── preprocess.py                        # Preprocess images (grayscale, denoise)
+├── preprocess_font_dataset.py           # Preprocess font test images
+├── train.py                             # Train the CTC model
+├── predict.py                           # Predict on single image
+├── evaluate.py                          # Batch evaluation with metrics
+├── requirements.txt                     # Python dependencies
+└── README.md                            # This file
 ```
 
 ## 🚀 Quick Start
+
+### Prerequisites
+
+1. **Download Font Library** (optional, for font testing):
+   - Download fonts from [Google Drive](https://drive.google.com/drive/folders/1mv5Z4Z8xpMHryvfceCBbgtObwcVjGApI)
+   - Extract to `train_font_library/` directory
 
 ### Local Setup
 
@@ -52,7 +70,7 @@ source venv/bin/activate  # macOS/Linux
 # 3. Install dependencies
 pip install -r requirements.txt
 
-# 4. Generate dataset
+# 4. Generate training dataset
 python generate_dataset.py
 
 # 5. Preprocess images
@@ -62,7 +80,7 @@ python preprocess.py
 python train.py
 
 # 7. Test prediction
-python predict.py data/processed/ABC12_0.png
+python predict.py data/train/processed/ABC12_0.png --use-attention
 ```
 
 ### Kaggle GPU Training
@@ -167,7 +185,7 @@ python predict.py <image_path>
 Example:
 
 ```bash
-python predict.py data/processed/ABC12_0.png
+python predict.py data/train/processed/ABC12_0.png --use-attention
 ```
 
 Output:
@@ -177,6 +195,17 @@ Predicted: ABC12
 Ground Truth: ABC12
 Correct: ✓
 ```
+
+### Batch Evaluation
+
+```bash
+python evaluate.py --model models/captcha_model_improved.pth --use-attention
+```
+
+Options:
+
+- `--data-dir`: Directory with images (default: `data/train/processed`)
+- `--max-samples`: Limit number of samples to evaluate
 
 ## ⚙️ Configuration
 
@@ -207,13 +236,13 @@ USE_ATTENTION = True     # Self-attention on top of BiLSTM outputs
 
 ## 📊 Performance
 
-| Metric        | Value           |
-| ------------- | --------------- |
-| Accuracy      | 50-90%          |
-| Training Time | 15-30 min (GPU) |
-| Model Size    | ~5-20 MB        |
-| Dataset       | 10,000 images   |
-| Classes       | 36 (0-9, A-Z)   |
+| Dataset    | Images | Accuracy |
+| ---------- | ------ | -------- |
+| Training   | 10,000 | ~90%     |
+| Test (Std) | 1,000  | 83.70%   |
+| Font Test  | 2,300  | 13.13%   |
+
+**Note**: Model performs well on standard fonts but struggles with decorative/stylized fonts, highlighting the importance of font diversity in training data.
 
 ## 🧪 Checkpoints
 

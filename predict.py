@@ -55,6 +55,8 @@ def main():
                        help='Path to model checkpoint')
     parser.add_argument('--use-lstm', action='store_true', default=True,
                        help='Use LSTM model (default: True)')
+    parser.add_argument('--use-attention', action='store_true', default=False,
+                       help='Enable self-attention in LSTM model')
     args = parser.parse_args()
     
     # Setup
@@ -63,7 +65,7 @@ def main():
     
     # Load model
     if args.use_lstm:
-        model = CTCCaptchaModel(num_classes=len(characters))
+        model = CTCCaptchaModel(num_classes=len(characters), use_attention=args.use_attention)
     else:
         model = CTCCaptchaModelSimple(num_classes=len(characters))
     
