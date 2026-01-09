@@ -26,8 +26,8 @@ TRAIN_SPLIT = 0.8
 USE_LSTM = True  # Set False for simpler/faster model
 USE_ATTENTION = True  # Enable self-attention on top of LSTM
 
-# Character set
-CHARACTERS = string.digits + string.ascii_uppercase
+# Character set (digits + lowercase + uppercase letters)
+CHARACTERS = string.digits + string.ascii_lowercase + string.ascii_uppercase
 NUM_CLASSES = len(CHARACTERS)
 
 
@@ -82,10 +82,17 @@ def train_epoch(model, dataloader, criterion, optimizer, device):
         # Forward pass
         log_probs = model(images)  # (seq_len, batch, num_classes+1)
         
-        # Prepare for CTC loss
+        # Prepare for CTC loss - supports variable length targets!
         batch_size = images.size(0)
         input_lengths = torch.full((batch_size,), log_probs.size(0), dtype=torch.long)
-        target_lengths = torch.full((batch_size,), labels.size(1), dtype=torch.long)
+        
+        # Calculate actual target lengths for each sample (variable length support)
+        target_lengths = []
+        for label in labels:
+            # Count non-padding tokens (padding is 0 from dataset)
+            actual_length = (label != 0).sum().item()
+            target_lengths.append(actual_length)
+        target_lengths = torch.tensor(target_lengths, dtype=torch.long)
         
         # CTC loss
         loss = criterion(log_probs, labels, input_lengths, target_lengths)
@@ -128,10 +135,16 @@ def validate(model, dataloader, criterion, device):
             # Forward pass
             log_probs = model(images)
             
-            # CTC loss
+            # CTC loss with variable target lengths
             batch_size = images.size(0)
             input_lengths = torch.full((batch_size,), log_probs.size(0), dtype=torch.long)
-            target_lengths = torch.full((batch_size,), labels.size(1), dtype=torch.long)
+            
+            # Calculate actual target lengths
+            target_lengths = []
+            for label in labels:
+                actual_length = (label != 0).sum().item()
+                target_lengths.append(actual_length)
+            target_lengths = torch.tensor(target_lengths, dtype=torch.long)
             
             loss = criterion(log_probs, labels, input_lengths, target_lengths)
             total_loss += loss.item()

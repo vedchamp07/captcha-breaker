@@ -10,16 +10,18 @@ from pathlib import Path
 
 # Configuration
 NUM_SAMPLES = 10000  # Number of captchas to generate
-CAPTCHA_LENGTH = 5   # Length of each captcha text
+MIN_LENGTH = 3       # Minimum captcha text length
+MAX_LENGTH = 7       # Maximum captcha text length
 IMAGE_WIDTH = 160
 IMAGE_HEIGHT = 60
 OUTPUT_DIR = Path("data/train/raw")
 
-# Character set (digits + uppercase letters)
-CHARACTERS = string.digits + string.ascii_uppercase
+# Character set (digits + lowercase + uppercase letters)
+CHARACTERS = string.digits + string.ascii_lowercase + string.ascii_uppercase
 
-def generate_captcha_text(length=CAPTCHA_LENGTH):
-    """Generate random captcha text."""
+def generate_captcha_text():
+    """Generate random captcha text with variable length."""
+    length = random.randint(MIN_LENGTH, MAX_LENGTH)
     return ''.join(random.choices(CHARACTERS, k=length))
 
 def main():
@@ -30,6 +32,7 @@ def main():
     generator = ImageCaptcha(width=IMAGE_WIDTH, height=IMAGE_HEIGHT)
     
     print(f"Generating {NUM_SAMPLES} CAPTCHA images...")
+    print(f"Length range: {MIN_LENGTH}-{MAX_LENGTH} characters")
     print(f"Characters used: {CHARACTERS}")
     print(f"Output directory: {OUTPUT_DIR}")
     

@@ -16,7 +16,7 @@ from src.model import CTCCaptchaModel
 
 # Setup
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-CHARACTERS = string.digits + string.ascii_uppercase
+CHARACTERS = string.digits + string.ascii_lowercase + string.ascii_uppercase
 MODEL_PATH = Path("models/captcha_model_improved.pth")
 
 # Load model
@@ -99,9 +99,10 @@ def predict_captcha(image, ground_truth=""):
         # Format output with styling
         result = f"### 🎯 Prediction Result\n\n"
         result += f"# **{predicted_text}**\n\n"
+        result += f"*Length: {len(predicted_text)} characters*\n\n"
         
         if ground_truth.strip():
-            ground_truth = ground_truth.upper()
+            ground_truth = ground_truth  # Keep case sensitive
             is_correct = predicted_text == ground_truth
             result += f"**Expected:** {ground_truth}\n\n"
             if is_correct:
@@ -174,12 +175,23 @@ with gr.Blocks(title="🔐 CAPTCHA Breaker", theme=gr.themes.Soft()) as demo:
             - ✓ Otsu's thresholding
             - ✓ Morphological closing (denoising)
             - ✓ Tensor normalization
+            - ✓ Variable length support (3-7 chars)
+            - ✓ Lowercase + Uppercase + Digits
             """)
         
         with gr.Column():
-            gr.Markdown("#### 📊 Preprocessed Image:")
+            gr.Markdown("#### 📊 Character Set:")
+            gr.Markdown("""
+            - **Digits:** 0-9
+            - **Lowercase:** a-z
+            - **Uppercase:** A-Z
+            - **Total:** 62 characters
+            """)
+        
+        with gr.Column():
+            gr.Markdown("#### 🖼️ Processed Image:")
             preprocessed_image = gr.Image(
-                label="Processed Input",
+                label="Input After Preprocessing",
                 type="pil"
             )
     
@@ -207,23 +219,25 @@ with gr.Blocks(title="🔐 CAPTCHA Breaker", theme=gr.themes.Soft()) as demo:
           • No bounding boxes needed!
           • Learns character positions automatically
             ↓
-        Output: 5-character prediction
+        Output: Variable-length prediction (3-7 characters)
         ```
         
-        ### 📈 Model Performance
+        ### 📈 Model Capabilities
         
-        | Metric | Value |
-        |--------|-------|
-        | **Training Accuracy** | ~90% |
-        | **Test Accuracy** | Strong on standard fonts |
-        | **Parameters** | 4.02M |
-        | **Training Time** | 60 epochs |
+        | Feature | Details |
+        |---------|---------|
+        | **Text Length** | 3-7 characters (variable) |
+        | **Character Set** | 0-9, a-z, A-Z (62 total) |
+        | **Architecture** | CNN + LSTM + Attention |
+        | **Training Data** | 10,000 synthetic CAPTCHAs |
+        | **Training Epochs** | 60 |
         
         ### ⚠️ Known Limitations
         
         - 0 vs O confusion (visual similarity)
-        - I vs 1 confusion
+        - i vs l vs 1 confusion (very similar shapes)
         - Limited performance on decorative/stylized fonts
+        - Sensitive to extreme image distortions
         """)
     
     # Connect buttons to prediction function
