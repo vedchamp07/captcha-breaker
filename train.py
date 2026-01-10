@@ -270,13 +270,13 @@ def main():
     # Transforms - stronger augmentation to learn distinctive features
     train_transform = transforms.Compose([
         transforms.Resize((60, 160)),
-        transforms.RandomRotation(8, fill=0),  # Increased rotation
-        transforms.RandomAffine(degrees=0, translate=(0.08, 0.08), scale=(0.9, 1.1), shear=5, fill=0),  # Stronger affine
-        transforms.GaussianBlur(kernel_size=3, sigma=(0.1, 0.5)),  # Slightly more blur
-        transforms.ColorJitter(brightness=0.15, contrast=0.15),  # More brightness/contrast variation
+        transforms.RandomRotation(5, fill=0),  # Reduced from 8
+        transforms.RandomAffine(degrees=0, translate=(0.05, 0.05), scale=(0.95, 1.05), shear=3, fill=0),  # Reduced
+        transforms.GaussianBlur(kernel_size=3, sigma=(0.1, 0.3)),  # Reduced blur
+        transforms.ColorJitter(brightness=0.1, contrast=0.1),  # Reduced from 0.15
         transforms.ToTensor(),
         # Random noise to force learning robust features (use torch.rand for DataLoader compatibility)
-        transforms.Lambda(lambda x: x + torch.randn_like(x) * 0.02 if torch.rand(1).item() < 0.3 else x),
+        transforms.Lambda(lambda x: x + torch.randn_like(x) * 0.01 if torch.rand(1).item() < 0.2 else x),  # Less noise
         transforms.Normalize(mean=[0.5], std=[0.5])
     ])
 
