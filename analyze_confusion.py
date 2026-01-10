@@ -18,6 +18,11 @@ from src.model import CTCCaptchaModel
 def preprocess_image(image):
     """Preprocess image: grayscale, thresholding, morphological operations."""
     img_array = np.array(image.convert('L'))
+
+    # Invert if background is dark to get dark text on light background
+    if img_array.mean() < 127:
+        img_array = 255 - img_array
+
     _, binary = cv2.threshold(img_array, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
     processed = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, kernel)
@@ -66,9 +71,10 @@ def analyze_confusion(model_path, data_dir, device):
         image_tensor = transform(image).unsqueeze(0).to(device)
         
         with torch.no_grad():
-            pred_indices = model.predict(image_tensor)[0]
-        
-        predicted_text = ''.join([characters[idx] for idx in pred_indices if idx < len(characters)])
+            decoded = model.predict(image_tensor)
+
+        pred_indices = decoded[0] if decoded else []
+        predicted_text = ''.join([characters[idx] for idx in pred_indices if 0 <= idx < len(characters)])
         
         # Align and count character-level confusions
         # Simple alignment: compare position by position
@@ -138,7 +144,7 @@ def analyze_confusion(model_path, data_dir, device):
 
 def main():
     parser = argparse.ArgumentParser(description='Analyze character confusion')
-    parser.add_argument('--model', type=str, default='models/captcha_model_v3.pth',
+    parser.add_argument('--model', type=str, default='models/captcha_model_v4.pth',
                        help='Path to model checkpoint')
     parser.add_argument('--data-dir', type=str, default='data/test/raw',
                        help='Directory containing test images')

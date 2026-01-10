@@ -138,55 +138,39 @@ class CTCCaptchaModel(nn.Module):
     
     def predict(self, x):
         """
-        Decode predictions using greedy decoding.
-        
-        Args:
-            x: Input images (batch_size, 1, 60, 160)
-        
-        Returns:
-            Predicted character indices (batch_size, max_length)
+        Decode predictions using greedy decoding (variable length).
+        Returns a list of index lists with blanks and repeats removed.
         """
         self.eval()
         with torch.no_grad():
             log_probs = self.forward(x)  # (seq_len, batch, num_classes+1)
-            
+
             # Greedy decoding: take argmax at each time step
             _, preds = log_probs.max(2)  # (seq_len, batch)
             preds = preds.transpose(0, 1)  # (batch, seq_len)
-            
-            # Decode: remove blanks and repeated characters
+
             decoded = []
             for pred_seq in preds:
                 decoded_seq = []
                 prev_char = None
-                
+
                 for char_idx in pred_seq:
                     char_idx = char_idx.item()
-                    
+
                     # Skip blank tokens
                     if char_idx == self.blank_idx:
                         prev_char = None
                         continue
-                    
+
                     # Skip repeated characters (CTC rule)
                     if char_idx != prev_char:
                         decoded_seq.append(char_idx)
                         prev_char = char_idx
-                
+
                 decoded.append(decoded_seq)
-            
-            # Pad sequences to same length (max 5 for CAPTCHA)
-            max_len = 5
-            padded = []
-            for seq in decoded:
-                if len(seq) < max_len:
-                    seq = seq + [0] * (max_len - len(seq))  # Pad with 0
-                else:
-                    seq = seq[:max_len]  # Truncate if too long
-                padded.append(seq)
-            
-            # Return tensor on same device as input
-            return torch.tensor(padded, dtype=torch.long, device=x.device)
+
+            # Return Python lists (variable length) for downstream decoding
+            return decoded
 
 
 class CTCCaptchaModelSimple(nn.Module):
@@ -256,14 +240,13 @@ class CTCCaptchaModelSimple(nn.Module):
         return log_probs
     
     def predict(self, x):
-        """Greedy decoding."""
+        """Greedy decoding with variable-length output (list of lists)."""
         self.eval()
         with torch.no_grad():
             log_probs = self.forward(x)
             _, preds = log_probs.max(2)
             preds = preds.transpose(0, 1)
             
-            # Decode
             decoded = []
             for pred_seq in preds:
                 decoded_seq = []
@@ -280,15 +263,4 @@ class CTCCaptchaModelSimple(nn.Module):
                 
                 decoded.append(decoded_seq)
             
-            # Pad to length 5
-            max_len = 5
-            padded = []
-            for seq in decoded:
-                if len(seq) < max_len:
-                    seq = seq + [0] * (max_len - len(seq))
-                else:
-                    seq = seq[:max_len]
-                padded.append(seq)
-            
-            # Return tensor on same device as input
-            return torch.tensor(padded, dtype=torch.long, device=x.device)
+            return decoded

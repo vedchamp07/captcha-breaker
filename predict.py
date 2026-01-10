@@ -23,16 +23,20 @@ def preprocess_image(image):
     Returns:
         Preprocessed PIL Image
     """
-    # Convert to numpy array
+    # Convert to grayscale numpy array
     img_array = np.array(image.convert('L'))
-    
+
+    # Heuristic: if background is mostly dark (mean < 127), invert so we get dark text on light bg
+    if img_array.mean() < 127:
+        img_array = 255 - img_array
+
     # Apply Otsu's thresholding
     _, binary = cv2.threshold(img_array, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-    
+
     # Morphological closing to remove noise
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
     processed = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, kernel)
-    
+
     # Convert back to PIL Image
     return Image.fromarray(processed)
 
@@ -67,10 +71,11 @@ def predict_image(model, image_path, characters, device):
     # Predict
     model.eval()
     with torch.no_grad():
-        pred_indices = model.predict(image_tensor)[0]
-    
-    # Decode
-    predicted_text = ''.join([characters[idx] for idx in pred_indices if idx < len(characters)])
+        decoded = model.predict(image_tensor)
+
+    # Decode first (and only) item in batch
+    pred_indices = decoded[0] if decoded else []
+    predicted_text = ''.join([characters[idx] for idx in pred_indices if 0 <= idx < len(characters)])
     
     return predicted_text
 
@@ -78,7 +83,7 @@ def predict_image(model, image_path, characters, device):
 def main():
     parser = argparse.ArgumentParser(description='Predict CAPTCHA using CTC model')
     parser.add_argument('image_path', type=str, help='Path to CAPTCHA image')
-    parser.add_argument('--model', type=str, default='models/captcha_model_v3.pth',
+    parser.add_argument('--model', type=str, default='models/captcha_model_v4.pth',
                        help='Path to model checkpoint')
     parser.add_argument('--use-lstm', action='store_true', default=True,
                        help='Use LSTM model (default: True)')

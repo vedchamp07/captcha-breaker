@@ -95,7 +95,7 @@ def main():
     print("="*60)
     print("\nNext steps:")
     print("  1. Run: python train.py")
-    print("  2. Evaluate: python evaluate.py --model models/captcha_model_v3.pth --data-dir data/test/raw")
+    print("  2. Evaluate: python evaluate.py --model models/captcha_model_v4.pth --data-dir data/test/raw")
     print("="*60 + "\n")
 
 

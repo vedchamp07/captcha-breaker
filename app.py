@@ -17,7 +17,7 @@ from src.model import CTCCaptchaModel
 # Setup
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 CHARACTERS = string.digits + string.ascii_lowercase + string.ascii_uppercase
-MODEL_PATH = Path("models/captcha_model_v3.pth")
+MODEL_PATH = Path("models/captcha_model_v4.pth")
 
 # Load model
 model = CTCCaptchaModel(num_classes=len(CHARACTERS), use_attention=True)
@@ -50,9 +50,13 @@ def preprocess_image(image):
     Returns:
         Preprocessed PIL Image
     """
-    # Convert to numpy array
+    # Convert to grayscale numpy array
     img_array = np.array(image.convert('L'))
-    
+
+    # If background is dark (mean < 127), invert so we get dark text on light background
+    if img_array.mean() < 127:
+        img_array = 255 - img_array
+
     # Apply Otsu's thresholding
     _, binary = cv2.threshold(img_array, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
     
@@ -92,12 +96,13 @@ def predict_captcha(image, ground_truth=""):
         
         # Predict
         with torch.no_grad():
-            pred_indices = model.predict(image_tensor)[0]
-        
-        # Decode
+            decoded = model.predict(image_tensor)
+
+        # Decode first (and only) batch element
+        pred_indices = decoded[0] if decoded else []
         predicted_text = ''.join([
-            CHARACTERS[idx.item()] for idx in pred_indices 
-            if idx.item() < len(CHARACTERS)
+            CHARACTERS[idx] for idx in pred_indices 
+            if 0 <= idx < len(CHARACTERS)
         ])
         
         # Format output with styling

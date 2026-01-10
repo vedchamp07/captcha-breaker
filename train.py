@@ -20,7 +20,7 @@ from src.model import CTCCaptchaModel, CTCCaptchaModelSimple
 
 # Configuration
 DATA_DIR = Path("data/train/raw")  # Use raw images - preprocessing on-the-fly
-MODEL_SAVE_PATH = Path("models/captcha_model_v3.pth")
+MODEL_SAVE_PATH = Path("models/captcha_model_v4.pth")
 BATCH_SIZE = 64
 EPOCHS = 60
 LEARNING_RATE = 0.0008

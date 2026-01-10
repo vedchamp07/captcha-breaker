@@ -25,9 +25,13 @@ def preprocess_image(image):
     Returns:
         Preprocessed PIL Image
     """
-    # Convert to numpy array
+    # Convert to grayscale array
     img_array = np.array(image.convert('L'))
-    
+
+    # If background is dark, invert to get dark text on light background
+    if img_array.mean() < 127:
+        img_array = 255 - img_array
+
     # Apply Otsu's thresholding
     _, binary = cv2.threshold(img_array, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
     
@@ -56,10 +60,10 @@ def predict_image(model, image_path, characters, device):
     # Predict
     model.eval()
     with torch.no_grad():
-        pred_indices = model.predict(image_tensor)[0]
-    
-    # Decode
-    predicted_text = ''.join([characters[idx] for idx in pred_indices if idx < len(characters)])
+        decoded = model.predict(image_tensor)
+
+    pred_indices = decoded[0] if decoded else []
+    predicted_text = ''.join([characters[idx] for idx in pred_indices if 0 <= idx < len(characters)])
     
     return predicted_text
 
@@ -173,7 +177,7 @@ def evaluate_batch(model_path, data_dir, characters, device, use_attention=False
 
 def main():
     parser = argparse.ArgumentParser(description='Evaluate CAPTCHA model on batch of images')
-    parser.add_argument('--model', type=str, default='models/captcha_model_v3.pth',
+    parser.add_argument('--model', type=str, default='models/captcha_model_v4.pth',
                        help='Path to model checkpoint')
     parser.add_argument('--data-dir', type=str, default='data/test/raw',
                        help='Directory containing CAPTCHA images')

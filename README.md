@@ -32,7 +32,7 @@ captcha-breaker/
 │   └── metadata.json                    # Dataset documentation
 ├── train_font_library/                  # Custom fonts (download separately)
 ├── models/
-│   └── captcha_model_v3.pth             # Trained model weights (latest)
+│   └── captcha_model_v4.pth             # Trained model weights (latest)
 ├── generate_dataset.py                  # Generate synthetic CAPTCHAs (confusion-aware)
 ├── generate_all_datasets.py             # Generate all datasets at once
 ├── train.py                             # Train the CTC model
@@ -77,10 +77,10 @@ python train.py
 python predict.py data/train/raw/abc123_0.png --use-attention
 
 # 7. Batch evaluate
-python evaluate.py --model models/captcha_model_v3.pth --data-dir data/test/raw
+python evaluate.py --model models/captcha_model_v4.pth --data-dir data/test/raw
 
 # 8. Analyze character confusion (0/O, 1/I/l, etc.)
-python analyze_confusion.py --model models/captcha_model_v3.pth
+python analyze_confusion.py --model models/captcha_model_v4.pth
 ```
 
 ### Using the Gradio App
@@ -187,7 +187,7 @@ Trains for 60 epochs with:
 - Epochs: 60
 - Uses BiLSTM + optional self-attention (enabled by default)
 - CTC loss with automatic alignment
-- Best model saved to `models/captcha_model_v3.pth`
+- Best model saved to `models/captcha_model_v4.pth`
 
 ### Make Predictions
 
@@ -212,7 +212,7 @@ Correct: ✓
 ### Batch Evaluation
 
 ```bash
-python evaluate.py --model models/captcha_model_v3.pth --data-dir data/test/raw --use-attention
+python evaluate.py --model models/captcha_model_v4.pth --data-dir data/test/raw --use-attention
 ```
 
 Options:
@@ -224,7 +224,7 @@ Options:
 ### Analyze Character Confusion
 
 ```bash
-python analyze_confusion.py --model models/captcha_model_v3.pth --data-dir data/test/raw
+python analyze_confusion.py --model models/captcha_model_v4.pth --data-dir data/test/raw
 ```
 
 Analyzes which characters are most often confused (e.g., 0/O, 1/I/l) and generates a detailed confusion matrix.
@@ -307,7 +307,7 @@ USE_ATTENTION = True     # Self-attention on top of BiLSTM outputs
 
 ## 🧪 Checkpoints
 
-- [models/captcha_model_v3.pth](models/captcha_model_v3.pth): Latest model with variable-length and lowercase support
+- [models/captcha_model_v4.pth](models/captcha_model_v4.pth): Latest model with variable-length and lowercase support
 
 ## 🛠️ Technology Stack
 
