@@ -4,6 +4,8 @@ A deep learning project to recognize CAPTCHA images using PyTorch with **CTC (Co
 
 **No bounding boxes needed** — the model automatically learns character positions!
 
+### 🌐 **[Try Live Demo on Hugging Face Spaces](https://huggingface.co/spaces/vedchamp07/break-captcha)** ← Click here to test it!
+
 ## 🎯 Overview
 
 This project uses a **CNN + LSTM + CTC** architecture to recognize text in CAPTCHA images. CTC is the industry-standard approach for sequence recognition without explicit alignment labels.
